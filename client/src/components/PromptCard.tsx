@@ -35,15 +35,12 @@ export function PromptCard({ prompt, onClick, compact = false }: PromptCardProps
         "
       >
         <div className="flex items-start justify-between">
-          <h4 className="text-base font-medium text-foreground line-clamp-2">
+          <h4 className="text-base font-medium text-foreground line-clamp-1">
             {prompt.originalIdea}
           </h4>
           <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
             {prompt.createdAt ? formatDistanceToNow(new Date(prompt.createdAt), { addSuffix: true }) : 'Just now'}
           </span>
-        </div>
-        <div className="mt-2 text-sm text-muted-foreground line-clamp-3 font-mono">
-          {prompt.magicPrompt}
         </div>
         <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/20 to-transparent rounded-b-xl" />
       </motion.div>

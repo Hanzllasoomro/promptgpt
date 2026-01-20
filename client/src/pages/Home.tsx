@@ -10,14 +10,14 @@ export default function Home() {
   const [idea, setIdea] = useState("");
   const [selectedPromptId, setSelectedPromptId] = useState<number | null>(null);
   const [showHistory, setShowHistory] = useState(false);
-  
+
   const generateMutation = useGeneratePrompt();
   const { data: prompts, isLoading: isLoadingHistory } = usePrompts();
 
   // If we just generated a prompt, select it automatically
   const handleGenerate = async () => {
     if (!idea.trim()) return;
-    
+
     try {
       const result = await generateMutation.mutateAsync({ idea });
       setSelectedPromptId(result.id);
@@ -27,8 +27,8 @@ export default function Home() {
     }
   };
 
-  const currentPrompt = selectedPromptId 
-    ? prompts?.find(p => p.id === selectedPromptId) 
+  const currentPrompt = selectedPromptId
+    ? prompts?.find((p) => p.id === selectedPromptId)
     : null;
 
   const handleNew = () => {
@@ -41,11 +41,11 @@ export default function Home() {
       <MorphingBackground />
 
       {/* Sidebar - History (Desktop: Persistent, Mobile: Toggle) */}
-      <aside 
+      <aside
         className={`
           fixed md:relative inset-y-0 left-0 z-40 w-full md:w-80 bg-black/80 backdrop-blur-xl border-r border-white/10
           transform transition-transform duration-300 ease-in-out md:translate-x-0
-          ${showHistory ? 'translate-x-0' : '-translate-x-full'}
+          ${showHistory ? "translate-x-0" : "-translate-x-full"}
         `}
       >
         <div className="h-full flex flex-col p-4">
@@ -56,7 +56,7 @@ export default function Home() {
               </span>
               PromptGPT
             </h2>
-            <button 
+            <button
               onClick={() => setShowHistory(false)}
               className="md:hidden p-2 text-muted-foreground hover:text-white"
             >
@@ -83,20 +83,25 @@ export default function Home() {
             </h3>
             {isLoadingHistory ? (
               <div className="space-y-3">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="h-20 bg-white/5 rounded-xl animate-pulse" />
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="h-20 bg-white/5 rounded-xl animate-pulse"
+                  />
                 ))}
               </div>
             ) : prompts?.length === 0 ? (
               <div className="text-center py-10 px-4">
-                <p className="text-sm text-muted-foreground">No prompts generated yet.</p>
+                <p className="text-sm text-muted-foreground">
+                  No prompts generated yet.
+                </p>
               </div>
             ) : (
-              prompts?.map(prompt => (
-                <PromptCard 
-                  key={prompt.id} 
-                  prompt={prompt} 
-                  compact 
+              prompts?.map((prompt) => (
+                <PromptCard
+                  key={prompt.id}
+                  prompt={prompt}
+                  compact
                   onClick={() => {
                     setSelectedPromptId(prompt.id);
                     setShowHistory(false);
@@ -118,7 +123,7 @@ export default function Home() {
             </span>
             <span className="font-display font-bold">PromptGPT</span>
           </div>
-          <button 
+          <button
             onClick={() => setShowHistory(true)}
             className="p-2 text-white bg-white/10 rounded-lg"
           >
@@ -128,7 +133,6 @@ export default function Home() {
 
         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 lg:p-12">
           <div className="max-w-4xl mx-auto space-y-12">
-            
             <AnimatePresence mode="wait">
               {/* Generation Form */}
               {!currentPrompt && !generateMutation.isPending && (
@@ -141,10 +145,11 @@ export default function Home() {
                 >
                   <div className="text-center mb-10 max-w-2xl">
                     <h1 className="text-4xl md:text-5xl font-display font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-white/50">
-                      Transform Ideas into Magic
+                      Transform Ideas into Magic Prompt
                     </h1>
                     <p className="text-lg text-muted-foreground">
-                      Enter a simple idea, and our AI will craft the perfect, detailed prompt optimized for LLMs.
+                      Enter a simple idea, and our AI will craft the perfect,
+                      detailed prompt optimized for LLMs.
                     </p>
                   </div>
 
@@ -186,9 +191,21 @@ export default function Home() {
 
                   <div className="w-full max-w-2xl mt-8 flex flex-wrap justify-center gap-2">
                     {[
-                      { label: "Portfolio Website", value: "A modern personal portfolio website for a creative designer" },
-                      { label: "YouTube Video SEO", value: "Optimize a YouTube video about healthy cooking for search results" },
-                      { label: "Explain Quantum Physics", value: "Explain Quantum Physics to a 5-year-old using emojis and simple analogies" }
+                      {
+                        label: "Portfolio Website",
+                        value:
+                          "A modern personal portfolio website for a creative designer",
+                      },
+                      {
+                        label: "YouTube Video SEO",
+                        value:
+                          "Optimize a YouTube video about healthy cooking for search results",
+                      },
+                      {
+                        label: "Explain Quantum Physics",
+                        value:
+                          "Explain Quantum Physics to a 5-year-old using emojis and simple analogies",
+                      },
                     ].map((suggestion) => (
                       <button
                         key={suggestion.label}
@@ -236,18 +253,18 @@ export default function Home() {
                       ← Create another
                     </button>
                   </div>
-                  
+
                   <PromptCard prompt={currentPrompt} />
-                  
+
                   <div className="text-center pt-8">
-                     <p className="text-muted-foreground text-sm">
-                       Tip: Copy this prompt and paste it directly into ChatGPT, Claude, or Gemini.
-                     </p>
+                    <p className="text-muted-foreground text-sm">
+                      Tip: Copy this prompt and paste it directly into ChatGPT,
+                      Claude, or Gemini.
+                    </p>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
-
           </div>
         </div>
       </main>
