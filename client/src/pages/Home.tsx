@@ -196,16 +196,16 @@ export default function Home() {
                           onClick={handleGenerate}
                           disabled={!idea.trim() || generateMutation.isPending}
                           className="
-                            flex items-center gap-2 px-6 py-2.5 rounded-lg font-semibold
+                            flex items-center justify-center w-10 h-10 rounded-lg
                             bg-gradient-to-r from-primary to-purple-600 text-white
                             shadow-lg shadow-primary/25
                             hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5
                             disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0
                             transition-all duration-200 ease-out
                           "
+                          title="Generate Magic Prompt"
                         >
-                          <Wand2 className="w-4 h-4" />
-                          Generate Magic Prompt
+                          <ChevronRight className="w-5 h-5" />
                         </button>
                       </div>
                     </div>
