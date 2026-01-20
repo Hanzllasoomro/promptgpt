@@ -1,38 +1,45 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { db } from "./db";
+import { generatedPrompts, type InsertGeneratedPrompt, type GeneratedPrompt } from "@shared/schema";
+import { chatStorage, type IChatStorage } from "./replit_integrations/chat/storage";
+import { desc, eq } from "drizzle-orm";
 
-// modify the interface with any CRUD methods
-// you might need
-
-export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+export interface IStorage extends IChatStorage {
+  createGeneratedPrompt(prompt: InsertGeneratedPrompt): Promise<GeneratedPrompt>;
+  getGeneratedPrompts(): Promise<GeneratedPrompt[]>;
+  getGeneratedPrompt(id: number): Promise<GeneratedPrompt | undefined>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
+export class DatabaseStorage implements IStorage {
+  // Inherit chat storage methods
+  getConversation = chatStorage.getConversation;
+  getAllConversations = chatStorage.getAllConversations;
+  createConversation = chatStorage.createConversation;
+  deleteConversation = chatStorage.deleteConversation;
+  getMessagesByConversation = chatStorage.getMessagesByConversation;
+  createMessage = chatStorage.createMessage;
 
-  constructor() {
-    this.users = new Map();
+  async createGeneratedPrompt(prompt: InsertGeneratedPrompt): Promise<GeneratedPrompt> {
+    const [newPrompt] = await db
+      .insert(generatedPrompts)
+      .values(prompt)
+      .returning();
+    return newPrompt;
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getGeneratedPrompts(): Promise<GeneratedPrompt[]> {
+    return await db
+      .select()
+      .from(generatedPrompts)
+      .orderBy(desc(generatedPrompts.createdAt));
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async getGeneratedPrompt(id: number): Promise<GeneratedPrompt | undefined> {
+    const [prompt] = await db
+      .select()
+      .from(generatedPrompts)
+      .where(eq(generatedPrompts.id, id));
+    return prompt;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
