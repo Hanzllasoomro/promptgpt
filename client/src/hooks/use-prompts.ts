@@ -29,14 +29,13 @@ export function usePrompt(id: number) {
 export function useGeneratePrompt() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: GeneratePromptInput) => {
-      // Validate input locally before sending
-      const validated = api.prompts.generate.input.parse(data);
+    mutationFn: async (data: GeneratePromptInput | FormData) => {
+      const isFormData = data instanceof FormData;
       
       const res = await fetch(api.prompts.generate.path, {
         method: api.prompts.generate.method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(validated),
+        headers: isFormData ? {} : { "Content-Type": "application/json" },
+        body: isFormData ? data : JSON.stringify(api.prompts.generate.input.parse(data)),
         credentials: "include",
       });
       

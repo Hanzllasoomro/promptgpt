@@ -3,7 +3,7 @@ import { useGeneratePrompt, usePrompts } from "@/hooks/use-prompts";
 import { MorphingBackground } from "@/components/MorphingBackground";
 import { PromptCard } from "@/components/PromptCard";
 import { ThinkingAnimation } from "@/components/ThinkingAnimation";
-import { Wand2, History, Plus, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
+import { Wand2, History, Plus, Sparkles, ChevronLeft, ChevronRight, Paperclip, X, FileIcon, ImageIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Home() {
@@ -188,25 +188,46 @@ export default function Home() {
                           resize-none focus:outline-none rounded-lg
                         "
                       />
-                      <div className="flex justify-between items-center px-2 pb-2 mt-2 border-t border-white/5 pt-3">
-                        <span className="text-xs text-muted-foreground">
-                          {idea.length} characters
-                        </span>
-                        <button
-                          onClick={handleGenerate}
-                          disabled={!idea.trim() || generateMutation.isPending}
-                          className="
-                            flex items-center justify-center w-10 h-10 rounded-lg
-                            bg-gradient-to-r from-primary to-purple-600 text-white
-                            shadow-lg shadow-primary/25
-                            hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5
-                            disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0
-                            transition-all duration-200 ease-out
-                          "
-                          title="Generate Magic Prompt"
-                        >
-                          <ChevronRight className="w-5 h-5" />
-                        </button>
+                      <div className="flex flex-col gap-3 px-2 pb-2 mt-2 border-t border-white/5 pt-3">
+                        {files.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {files.map((file, index) => (
+                              <div key={index} className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-white group/file">
+                                {file.type.startsWith("image/") ? <ImageIcon className="w-3 h-3" /> : <FileIcon className="w-3 h-3" />}
+                                <span className="max-w-[100px] truncate">{file.name}</span>
+                                <button onClick={() => removeFile(index)} className="text-muted-foreground hover:text-red-400">
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-3">
+                            <label className="cursor-pointer p-2 text-muted-foreground hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-all" title="Attach Files">
+                              <Paperclip className="w-4 h-4" />
+                              <input type="file" multiple className="hidden" onChange={handleFileChange} />
+                            </label>
+                            <span className="text-xs text-muted-foreground">
+                              {idea.length} characters
+                            </span>
+                          </div>
+                          <button
+                            onClick={handleGenerate}
+                            disabled={(!idea.trim() && files.length === 0) || generateMutation.isPending}
+                            className="
+                              flex items-center justify-center w-10 h-10 rounded-lg
+                              bg-gradient-to-r from-primary to-purple-600 text-white
+                              shadow-lg shadow-primary/25
+                              hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5
+                              disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0
+                              transition-all duration-200 ease-out
+                            "
+                            title="Generate Magic Prompt"
+                          >
+                            <ChevronRight className="w-5 h-5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
