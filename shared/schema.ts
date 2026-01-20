@@ -8,6 +8,7 @@ export const generatedPrompts = pgTable("generated_prompts", {
   magicPrompt: text("magic_prompt").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   metadata: jsonb("metadata"), // For any extra info
+  attachments: jsonb("attachments").default([]), // Store file info: { name, type, url }
 });
 
 export const insertGeneratedPromptSchema = createInsertSchema(generatedPrompts).omit({ 
