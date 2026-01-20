@@ -11,18 +11,35 @@ export default function Home() {
   const [selectedPromptId, setSelectedPromptId] = useState<number | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
 
   const generateMutation = useGeneratePrompt();
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const { data: prompts, isLoading: isLoadingHistory } = usePrompts();
 
   // If we just generated a prompt, select it automatically
   const handleGenerate = async () => {
-    if (!idea.trim()) return;
+    if (!idea.trim() && files.length === 0) return;
 
     try {
-      const result = await generateMutation.mutateAsync({ idea });
+      const formData = new FormData();
+      formData.append("idea", idea);
+      files.forEach((file) => formData.append("files", file));
+
+      const result = await generateMutation.mutateAsync(formData as any);
       setSelectedPromptId(result.id);
       setIdea(""); // clear input
+      setFiles([]);
     } catch (error) {
       console.error(error);
     }

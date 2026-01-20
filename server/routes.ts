@@ -93,6 +93,7 @@ export async function registerRoutes(
       const savedPrompt = await storage.createGeneratedPrompt({
         originalIdea: idea,
         magicPrompt: magicPromptContent,
+        attachments: attachments,
         metadata: {},
       });
 
