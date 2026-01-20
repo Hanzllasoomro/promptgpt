@@ -3,13 +3,14 @@ import { useGeneratePrompt, usePrompts } from "@/hooks/use-prompts";
 import { MorphingBackground } from "@/components/MorphingBackground";
 import { PromptCard } from "@/components/PromptCard";
 import { ThinkingAnimation } from "@/components/ThinkingAnimation";
-import { Wand2, History, Plus, Sparkles } from "lucide-react";
+import { Wand2, History, Plus, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Home() {
   const [idea, setIdea] = useState("");
   const [selectedPromptId, setSelectedPromptId] = useState<number | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const generateMutation = useGeneratePrompt();
   const { data: prompts, isLoading: isLoadingHistory } = usePrompts();
@@ -43,12 +44,13 @@ export default function Home() {
       {/* Sidebar - History (Desktop: Persistent, Mobile: Toggle) */}
       <aside
         className={`
-          fixed md:relative inset-y-0 left-0 z-40 w-full md:w-80 bg-black/80 backdrop-blur-xl border-r border-white/10
-          transform transition-transform duration-300 ease-in-out md:translate-x-0
-          ${showHistory ? "translate-x-0" : "-translate-x-full"}
+          fixed md:relative inset-y-0 left-0 z-40 bg-black/80 backdrop-blur-xl border-r border-white/10
+          transform transition-all duration-300 ease-in-out md:translate-x-0
+          ${showHistory ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+          ${isSidebarCollapsed ? "md:w-0 md:opacity-0 md:pointer-events-none" : "w-full md:w-80"}
         `}
       >
-        <div className="h-full flex flex-col p-4">
+        <div className={`h-full flex flex-col p-4 ${isSidebarCollapsed ? "hidden md:flex" : "flex"}`}>
           <div className="flex items-center justify-between mb-6 px-2">
             <h2 className="text-xl font-display font-bold text-white flex items-center gap-2">
               <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center">
@@ -56,12 +58,21 @@ export default function Home() {
               </span>
               PromptGPT
             </h2>
-            <button
-              onClick={() => setShowHistory(false)}
-              className="md:hidden p-2 text-muted-foreground hover:text-white"
-            >
-              Close
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsSidebarCollapsed(true)}
+                className="hidden md:flex p-2 text-muted-foreground hover:text-white bg-white/5 rounded-lg transition-colors"
+                title="Collapse Sidebar"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setShowHistory(false)}
+                className="md:hidden p-2 text-muted-foreground hover:text-white"
+              >
+                Close
+              </button>
+            </div>
           </div>
 
           <button
@@ -115,6 +126,17 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
+        {/* Sidebar Toggle (Desktop Only, shown when collapsed) */}
+        {isSidebarCollapsed && (
+          <button
+            onClick={() => setIsSidebarCollapsed(false)}
+            className="hidden md:flex absolute left-4 top-4 z-50 p-2 text-white bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-md border border-white/10 transition-all shadow-xl"
+            title="Expand Sidebar"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        )}
+
         {/* Mobile Header */}
         <header className="md:hidden flex items-center justify-between p-4 border-b border-white/10 bg-black/40 backdrop-blur-md">
           <div className="flex items-center gap-2">
