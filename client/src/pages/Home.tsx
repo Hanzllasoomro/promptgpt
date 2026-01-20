@@ -183,6 +183,27 @@ export default function Home() {
                       </div>
                     </div>
                   </div>
+
+                  <div className="w-full max-w-2xl mt-8 flex flex-wrap justify-center gap-2">
+                    {[
+                      { label: "Portfolio Website", value: "A modern personal portfolio website for a creative designer" },
+                      { label: "YouTube Video SEO", value: "Optimize a YouTube video about healthy cooking for search results" },
+                      { label: "Explain Quantum Physics", value: "Explain Quantum Physics to a 5-year-old using emojis and simple analogies" }
+                    ].map((suggestion) => (
+                      <button
+                        key={suggestion.label}
+                        onClick={() => setIdea(suggestion.value)}
+                        className="
+                          px-3 py-1.5 rounded-full text-xs font-medium
+                          bg-white/5 border border-white/10 text-muted-foreground
+                          hover:bg-white/10 hover:text-white hover:border-white/20
+                          transition-all duration-200
+                        "
+                      >
+                        {suggestion.label}
+                      </button>
+                    ))}
+                  </div>
                 </motion.div>
               )}
 
