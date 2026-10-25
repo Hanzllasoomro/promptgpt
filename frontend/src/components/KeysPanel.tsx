@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { checkKey } from "../api";
 import { clearAllKeys, getKey, masked, setKey } from "../keys";
 import type { ProviderInfo } from "../types";
@@ -8,11 +8,22 @@ interface Props {
 }
 
 export default function KeysPanel({ providers }: Props) {
-  const [values, setValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(providers.map((p) => [p.id, getKey(p.id)])),
-  );
+  const [values, setValues] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState("");
   const [notice, setNotice] = useState("");
+
+  // Providers load after mount; sync saved keys in once they arrive.
+  // (Previously the initial state ran before providers loaded, so saved
+  // keys never prefilled the form.)
+  useEffect(() => {
+    setValues((prev) => {
+      const next = { ...prev };
+      for (const p of providers) {
+        if (!(p.id in next)) next[p.id] = getKey(p.id);
+      }
+      return next;
+    });
+  }, [providers]);
 
   function save(provider: string) {
     setKey(provider, values[provider] || "");
@@ -45,20 +56,26 @@ export default function KeysPanel({ providers }: Props) {
       </p>
       {providers.map((p) => (
         <div key={p.id} className="key-row">
-          <label>
-            <strong>{p.name}</strong>
-            <span className="muted"> — {p.key_help}</span>
-            <input
-              type="password"
-              autoComplete="off"
-              placeholder={masked(getKey(p.id))}
-              value={values[p.id] || ""}
-              onChange={(e) => setValues({ ...values, [p.id]: e.target.value })}
-            />
-          </label>
-          <div className="row">
-            <button onClick={() => save(p.id)}>{saved === p.id ? "Saved!" : "Save in this browser"}</button>
-            <button className="secondary" onClick={() => check(p.id)}>Check format</button>
+          <div className="key-label">
+            <h3>{p.name}</h3>
+            <p>{p.key_help}</p>
+            <p className="small">Saved: {masked(getKey(p.id))}</p>
+          </div>
+          <div className="key-panel">
+            <label>
+              API key
+              <input
+                type="password"
+                autoComplete="off"
+                placeholder="Paste your key here"
+                value={values[p.id] || ""}
+                onChange={(e) => setValues({ ...values, [p.id]: e.target.value })}
+              />
+            </label>
+            <div className="row">
+              <button onClick={() => save(p.id)}>{saved === p.id ? "Saved" : "Save in this browser"}</button>
+              <button className="secondary" onClick={() => check(p.id)}>Check format</button>
+            </div>
           </div>
         </div>
       ))}

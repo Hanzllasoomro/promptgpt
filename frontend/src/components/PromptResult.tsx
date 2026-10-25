@@ -50,7 +50,7 @@ export default function PromptResult({ result, onUseInChat }: Props) {
       </details>
       <ul className="tips">
         {result.tips.map((t) => (
-          <li key={t}>💡 {t}</li>
+          <li key={t}>{t}</li>
         ))}
       </ul>
 

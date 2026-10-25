@@ -3,9 +3,38 @@ import { generatePrompt, listProviders } from "./api";
 import ChatPanel from "./components/ChatPanel";
 import KeysPanel from "./components/KeysPanel";
 import PromptResult from "./components/PromptResult";
+import { hasKey } from "./keys";
 import type { GenerateResponse, HistoryItem, ProviderInfo } from "./types";
 
 const TASK_TYPES = ["general", "write", "code", "explain", "marketing", "learn", "plan"];
+
+const TABS = [
+  { id: "generate", label: "Generate" },
+  { id: "chat", label: "Chat with my key" },
+  { id: "keys", label: "Keys" },
+  { id: "history", label: "History" },
+] as const;
+
+type Tab = (typeof TABS)[number]["id"];
+
+const PAGE_HEADS: Record<Tab, { title: string; text: string }> = {
+  generate: {
+    title: "Turn a casual idea into a prompt you can actually use",
+    text: "Write the idea in plain words. PromptGPT structures it into role, objective, context, steps, constraints and output format — no API key needed for this step.",
+  },
+  chat: {
+    title: "Run a prompt with your own LLM key",
+    text: "Pick a provider, paste or generate a prompt, and run it here. Your key is sent only with this request.",
+  },
+  keys: {
+    title: "Your API keys, in this browser only",
+    text: "Add a key per provider once. It stays in localStorage, is sent as a header on a chat request, and is never stored or logged server-side.",
+  },
+  history: {
+    title: "History, in this browser only",
+    text: "Every prompt you generate here, newest first. Nothing here leaves your device.",
+  },
+};
 
 function loadHistory(): HistoryItem[] {
   try {
@@ -16,7 +45,7 @@ function loadHistory(): HistoryItem[] {
 }
 
 export default function App() {
-  const [tab, setTab] = useState<"generate" | "chat" | "keys" | "history">("generate");
+  const [tab, setTab] = useState<Tab>("generate");
   const [idea, setIdea] = useState("");
   const [taskType, setTaskType] = useState("general");
   const [audience, setAudience] = useState("");
@@ -29,10 +58,13 @@ export default function App() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
+  const [apiDown, setApiDown] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>(loadHistory);
 
   useEffect(() => {
-    listProviders().then((d) => setProviders(d.providers)).catch(() => {});
+    listProviders()
+      .then((d) => setProviders(d.providers))
+      .catch(() => setApiDown(true));
   }, []);
 
   async function generate() {
@@ -59,26 +91,46 @@ export default function App() {
     }
   }
 
+  const keysSaved = providers.filter((p) => hasKey(p.id)).length;
+  const head = PAGE_HEADS[tab];
+
   return (
-    <div className="shell">
-      <header>
-        <h1>✨ PromptGPT</h1>
-        <p>Turn a casual idea into an engineered prompt — then send it to your chatbot, or run it here with your own key.</p>
-        <nav>
-          {(["generate", "chat", "keys", "history"] as const).map((t) => (
-            <button key={t} className={tab === t ? "active" : ""} onClick={() => setTab(t)}>
-              {t === "generate" ? "Generate" : t === "chat" ? "Chat with my key" : t === "keys" ? "Keys" : "History"}
+    <div className="app">
+      <aside className="sidebar">
+        <p className="wordmark">Prompt<span>GPT</span></p>
+        <nav className="nav" aria-label="Main">
+          {TABS.map((t) => (
+            <button key={t.id} className={tab === t.id ? "active" : ""} onClick={() => setTab(t.id)}>
+              {t.label}
             </button>
           ))}
         </nav>
-      </header>
+        <div className="sidebar-foot">
+          <p>
+            <span className={`status-dot${apiDown ? " off" : ""}`} />
+            <strong>API:</strong> {apiDown ? "unavailable — is the backend running?" : providers.length ? "connected" : "checking…"}
+          </p>
+          {providers.length > 0 && (
+            <p>
+              <strong>Keys saved:</strong> {keysSaved} of {providers.length} providers
+            </p>
+          )}
+          <p>Keys never leave your browser except as a header on your own chat request.</p>
+        </div>
+      </aside>
 
-      <main>
+      <main className="sheet">
+        <div className="page-head">
+          <h1>{head.title}</h1>
+          <p>{head.text}</p>
+        </div>
+
         {tab === "generate" && (
-          <>
+          <div className="work-grid">
             <section className="card">
+              <h2>Your idea</h2>
               <label>
-                Your casual idea
+                Casual idea
                 <textarea value={idea} onChange={(e) => setIdea(e.target.value)} rows={4}
                   placeholder="e.g. Explain quantum physics to a 5-year-old using emojis…" />
               </label>
@@ -88,12 +140,6 @@ export default function App() {
                     {TASK_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </label>
-                <label>Audience
-                  <input value={audience} onChange={(e) => setAudience(e.target.value)} placeholder="e.g. high-school students" />
-                </label>
-                <label>Tone
-                  <input value={tone} onChange={(e) => setTone(e.target.value)} />
-                </label>
                 <label>Length
                   <select value={length} onChange={(e) => setLength(e.target.value)}>
                     <option value="short">Short</option>
@@ -102,20 +148,41 @@ export default function App() {
                   </select>
                 </label>
               </div>
+              <label>Audience
+                <input value={audience} onChange={(e) => setAudience(e.target.value)} placeholder="e.g. high-school students" />
+              </label>
+              <label>Tone
+                <input value={tone} onChange={(e) => setTone(e.target.value)} />
+              </label>
               <label>Output format
                 <input value={outputFormat} onChange={(e) => setOutputFormat(e.target.value)} />
               </label>
               <label>Context (optional — what is this for?)
                 <textarea value={context} onChange={(e) => setContext(e.target.value)} rows={2} />
               </label>
-              <button onClick={generate} disabled={loading || idea.trim().length < 3}>
-                {loading ? "Engineering…" : "Engineer my prompt"}
-              </button>
+              <div className="row">
+                <button onClick={generate} disabled={loading || idea.trim().length < 3}>
+                  {loading ? "Engineering…" : "Engineer my prompt"}
+                </button>
+              </div>
               {error && <p className="error">{error}</p>}
-              <p className="muted">No API key needed for this step — prompt engineering here is deterministic and runs offline.</p>
+              <p className="muted">No API key needed here — prompt engineering is deterministic and runs offline.</p>
             </section>
-            {result && <PromptResult result={result} onUseInChat={(p) => { setChatPrompt(p); setTab("chat"); }} />}
-          </>
+
+            {result ? (
+              <PromptResult result={result} onUseInChat={(p) => { setChatPrompt(p); setTab("chat"); }} />
+            ) : (
+              <section className="card empty-state">
+                <h2>Your engineered prompt will appear here</h2>
+                <ol>
+                  <li>Write the idea in plain words on the left.</li>
+                  <li>PromptGPT structures it: role, objective, context, steps, constraints, output format.</li>
+                  <li>Copy it, send it to your favourite chatbot, or run it here with your own key.</li>
+                </ol>
+                <p>Try: “A modern personal portfolio website for a creative designer” or “Explain quantum physics to a 5-year-old using simple analogies”.</p>
+              </section>
+            )}
+          </div>
         )}
 
         {tab === "chat" && (
@@ -126,13 +193,15 @@ export default function App() {
 
         {tab === "history" && (
           <section className="card">
-            <h2>History (this browser only)</h2>
+            <h2>Past prompts</h2>
             {history.length === 0 && <p className="muted">Nothing yet — generate a prompt first.</p>}
             {history.map((h) => (
               <details key={h.id}>
                 <summary>{h.idea}</summary>
                 <pre className="prompt-text">{h.engineered_prompt}</pre>
-                <button onClick={() => { setChatPrompt(h.engineered_prompt); setTab("chat"); }}>Run this in Chat →</button>
+                <div className="row">
+                  <button className="secondary" onClick={() => { setChatPrompt(h.engineered_prompt); setTab("chat"); }}>Run this in Chat</button>
+                </div>
               </details>
             ))}
             {history.length > 0 && (
@@ -142,10 +211,11 @@ export default function App() {
             )}
           </section>
         )}
+
+        <footer className="sheet-foot">
+          PromptGPT v2 — backend and frontend deploy independently.
+        </footer>
       </main>
-      <footer className="muted">
-        PromptGPT v2 — backend and frontend deploy independently. Your keys never leave your browser except as a header on your own chat request.
-      </footer>
     </div>
   );
 }
