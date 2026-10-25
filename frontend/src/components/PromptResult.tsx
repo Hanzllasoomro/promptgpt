@@ -33,17 +33,17 @@ export default function PromptResult({ result, onUseInChat }: Props) {
   }
 
   return (
-    <section className="card">
-      <div className="card-head">
+    <section className="panel">
+      <div className="panel-head">
         <h2>Engineered prompt</h2>
-        <div className="row">
-          <button onClick={() => copy(result.engineered_prompt)}>{copied ? "Copied!" : "Copy prompt"}</button>
-          <button className="secondary" onClick={() => onUseInChat(result.engineered_prompt)}>
-            Run it here with my key →
+        <div className="row" style={{ marginTop: 0 }}>
+          <button className="btn-secondary" onClick={() => copy(result.engineered_prompt)}>{copied ? "Copied" : "Copy prompt"}</button>
+          <button className="btn-primary" onClick={() => onUseInChat(result.engineered_prompt)}>
+            Run it with my key
           </button>
         </div>
       </div>
-      <pre className="prompt-text">{result.engineered_prompt}</pre>
+      <pre className="document">{result.engineered_prompt}</pre>
       <details>
         <summary>Concise version</summary>
         <p>{result.concise_prompt}</p>
@@ -54,10 +54,10 @@ export default function PromptResult({ result, onUseInChat }: Props) {
         ))}
       </ul>
 
-      <div className="send-section">
+      <div>
         <h3>Send to your favourite chatbot</h3>
         {!chatbots && (
-          <button onClick={loadChatbots}>Show chatbot options</button>
+          <button className="btn-secondary" onClick={loadChatbots}>Show chatbot options</button>
         )}
         {chatbotError && <p className="error">{chatbotError}</p>}
         {chatbots && (

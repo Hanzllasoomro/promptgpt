@@ -39,7 +39,7 @@ export default function ChatPanel({ providers, initialPrompt, onNeedKey }: Props
         useLangChain,
       );
       setReply(res.reply);
-      setMeta(`${res.provider} · ${res.model} · via ${res.via} · ${res.latency_ms} ms`);
+      setMeta(`${res.provider}, ${res.model}, via ${res.via}, ${res.latency_ms} ms`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Chat failed");
     } finally {
@@ -48,10 +48,10 @@ export default function ChatPanel({ providers, initialPrompt, onNeedKey }: Props
   }
 
   return (
-    <section className="card">
-      <h2>Run a prompt directly with your own LLM key</h2>
+    <section className="panel">
+      <h2>Chat</h2>
       <p className="muted">
-        Pick a provider, paste (or generate) a prompt, and run it here — no need to
+        Pick a provider, paste or generate a prompt, and run it here — no need to
         leave PromptGPT. Your key is sent only with this request.
       </p>
       <div className="grid">
@@ -84,26 +84,27 @@ export default function ChatPanel({ providers, initialPrompt, onNeedKey }: Props
           <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} />
         </label>
       )}
-      <label>
-        Prompt
-        <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={8} />
-      </label>
-      <label className="check">
-        <input type="checkbox" checked={useLangChain} onChange={(e) => setUseLangChain(e.target.checked)} />
-        Run via LangChain instead of the direct provider API (requires the optional
-        LangChain packages on the backend)
-      </label>
-      <div className="row">
-        <button onClick={run} disabled={loading || !prompt.trim()}>
-          {loading ? "Running…" : "Run with my key"}
-        </button>
-        {!key && <span className="muted">No key saved for {info?.name} — add one in Keys.</span>}
+      <div className="composer" style={{ marginTop: "1rem" }}>
+        <label>
+          Prompt
+          <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={6} placeholder="Paste or generate a prompt, then run it below" />
+        </label>
+        <div className="composer-foot">
+          <label className="check" style={{ marginTop: 0 }}>
+            <input type="checkbox" checked={useLangChain} onChange={(e) => setUseLangChain(e.target.checked)} />
+            <span className="small">Run via LangChain (requires the optional LangChain packages on the backend)</span>
+          </label>
+          <button className="btn-primary" onClick={run} disabled={loading || !prompt.trim()}>
+            {loading ? "Running…" : "Run"}
+          </button>
+        </div>
       </div>
+      {!key && <p className="muted">No key saved for {info?.name} — add one in Keys.</p>}
       {error && <p className="error">{error}</p>}
       {reply && (
         <div>
-          <p className="muted">{meta}</p>
-          <pre className="prompt-text">{reply}</pre>
+          <p className="small mono tabular">{meta}</p>
+          <pre className="document">{reply}</pre>
         </div>
       )}
     </section>

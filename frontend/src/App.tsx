@@ -10,7 +10,7 @@ const TASK_TYPES = ["general", "write", "code", "explain", "marketing", "learn",
 
 const TABS = [
   { id: "generate", label: "Generate" },
-  { id: "chat", label: "Chat with my key" },
+  { id: "chat", label: "Chat" },
   { id: "keys", label: "Keys" },
   { id: "history", label: "History" },
 ] as const;
@@ -19,20 +19,20 @@ type Tab = (typeof TABS)[number]["id"];
 
 const PAGE_HEADS: Record<Tab, { title: string; text: string }> = {
   generate: {
-    title: "Turn a casual idea into a prompt you can actually use",
-    text: "Write the idea in plain words. PromptGPT structures it into role, objective, context, steps, constraints and output format — no API key needed for this step.",
+    title: "Make a better prompt",
+    text: "Write an idea in plain words. PromptGPT turns it into a structured prompt you can send or run.",
   },
   chat: {
-    title: "Run a prompt with your own LLM key",
-    text: "Pick a provider, paste or generate a prompt, and run it here. Your key is sent only with this request.",
+    title: "Run it with your key",
+    text: "Choose a provider and run the prompt here, using only your own API key.",
   },
   keys: {
-    title: "Your API keys, in this browser only",
-    text: "Add a key per provider once. It stays in localStorage, is sent as a header on a chat request, and is never stored or logged server-side.",
+    title: "Your keys, your browser",
+    text: "Add a key per provider once. It stays in this browser and is sent only with a chat request.",
   },
   history: {
-    title: "History, in this browser only",
-    text: "Every prompt you generate here, newest first. Nothing here leaves your device.",
+    title: "Past prompts",
+    text: "Every prompt you generated here, newest first. Nothing here leaves your device.",
   },
 };
 
@@ -97,7 +97,7 @@ export default function App() {
   return (
     <div className="app">
       <aside className="sidebar">
-        <p className="wordmark">Prompt<span>GPT</span></p>
+        <p className="wordmark">PromptGPT</p>
         <nav className="nav" aria-label="Main">
           {TABS.map((t) => (
             <button key={t.id} className={tab === t.id ? "active" : ""} onClick={() => setTab(t.id)}>
@@ -107,114 +107,121 @@ export default function App() {
         </nav>
         <div className="sidebar-foot">
           <p>
-            <span className={`status-dot${apiDown ? " off" : ""}`} />
-            <strong>API:</strong> {apiDown ? "unavailable — is the backend running?" : providers.length ? "connected" : "checking…"}
+            <strong>API:</strong> {apiDown ? "unavailable — is the backend running?" : providers.length ? "connected" : "checking"}
           </p>
           {providers.length > 0 && (
             <p>
-              <strong>Keys saved:</strong> {keysSaved} of {providers.length} providers
+              <strong>Keys saved:</strong> <span className="tabular">{keysSaved} of {providers.length}</span> providers
             </p>
           )}
           <p>Keys never leave your browser except as a header on your own chat request.</p>
         </div>
       </aside>
 
-      <main className="sheet">
-        <div className="page-head">
-          <h1>{head.title}</h1>
-          <p>{head.text}</p>
-        </div>
-
-        {tab === "generate" && (
-          <div className="work-grid">
-            <section className="card">
-              <h2>Your idea</h2>
-              <label>
-                Casual idea
-                <textarea value={idea} onChange={(e) => setIdea(e.target.value)} rows={4}
-                  placeholder="e.g. Explain quantum physics to a 5-year-old using emojis…" />
-              </label>
-              <div className="grid">
-                <label>Task type
-                  <select value={taskType} onChange={(e) => setTaskType(e.target.value)}>
-                    {TASK_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </label>
-                <label>Length
-                  <select value={length} onChange={(e) => setLength(e.target.value)}>
-                    <option value="short">Short</option>
-                    <option value="medium">Medium</option>
-                    <option value="long">Long</option>
-                  </select>
-                </label>
-              </div>
-              <label>Audience
-                <input value={audience} onChange={(e) => setAudience(e.target.value)} placeholder="e.g. high-school students" />
-              </label>
-              <label>Tone
-                <input value={tone} onChange={(e) => setTone(e.target.value)} />
-              </label>
-              <label>Output format
-                <input value={outputFormat} onChange={(e) => setOutputFormat(e.target.value)} />
-              </label>
-              <label>Context (optional — what is this for?)
-                <textarea value={context} onChange={(e) => setContext(e.target.value)} rows={2} />
-              </label>
-              <div className="row">
-                <button onClick={generate} disabled={loading || idea.trim().length < 3}>
-                  {loading ? "Engineering…" : "Engineer my prompt"}
-                </button>
-              </div>
-              {error && <p className="error">{error}</p>}
-              <p className="muted">No API key needed here — prompt engineering is deterministic and runs offline.</p>
-            </section>
-
-            {result ? (
-              <PromptResult result={result} onUseInChat={(p) => { setChatPrompt(p); setTab("chat"); }} />
-            ) : (
-              <section className="card empty-state">
-                <h2>Your engineered prompt will appear here</h2>
-                <ol>
-                  <li>Write the idea in plain words on the left.</li>
-                  <li>PromptGPT structures it: role, objective, context, steps, constraints, output format.</li>
-                  <li>Copy it, send it to your favourite chatbot, or run it here with your own key.</li>
-                </ol>
-                <p>Try: “A modern personal portfolio website for a creative designer” or “Explain quantum physics to a 5-year-old using simple analogies”.</p>
-              </section>
-            )}
+      <main className="main">
+        <div className="main-inner">
+          <div className="page-head reveal">
+            <h1>{head.title}</h1>
+            <p>{head.text}</p>
           </div>
-        )}
 
-        {tab === "chat" && (
-          <ChatPanel providers={providers} initialPrompt={chatPrompt} onNeedKey={() => setTab("keys")} />
-        )}
-
-        {tab === "keys" && <KeysPanel providers={providers} />}
-
-        {tab === "history" && (
-          <section className="card">
-            <h2>Past prompts</h2>
-            {history.length === 0 && <p className="muted">Nothing yet — generate a prompt first.</p>}
-            {history.map((h) => (
-              <details key={h.id}>
-                <summary>{h.idea}</summary>
-                <pre className="prompt-text">{h.engineered_prompt}</pre>
-                <div className="row">
-                  <button className="secondary" onClick={() => { setChatPrompt(h.engineered_prompt); setTab("chat"); }}>Run this in Chat</button>
+          {tab === "generate" && (
+            <div className="work-grid reveal-2">
+              <section className="panel">
+                <h2>Your idea</h2>
+                <label>
+                  Casual idea
+                  <textarea value={idea} onChange={(e) => setIdea(e.target.value)} rows={4}
+                    placeholder="e.g. Explain quantum physics to a 5-year-old using simple analogies" />
+                </label>
+                <div className="grid">
+                  <label>Task type
+                    <select value={taskType} onChange={(e) => setTaskType(e.target.value)}>
+                      {TASK_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </label>
+                  <label>Length
+                    <select value={length} onChange={(e) => setLength(e.target.value)}>
+                      <option value="short">Short</option>
+                      <option value="medium">Medium</option>
+                      <option value="long">Long</option>
+                    </select>
+                  </label>
                 </div>
-              </details>
-            ))}
-            {history.length > 0 && (
-              <button className="danger" onClick={() => { setHistory([]); localStorage.removeItem("promptgpt:history"); }}>
-                Clear history
-              </button>
-            )}
-          </section>
-        )}
+                <label>Audience
+                  <input value={audience} onChange={(e) => setAudience(e.target.value)} placeholder="e.g. high-school students" />
+                </label>
+                <label>Tone
+                  <input value={tone} onChange={(e) => setTone(e.target.value)} />
+                </label>
+                <label>Output format
+                  <input value={outputFormat} onChange={(e) => setOutputFormat(e.target.value)} />
+                </label>
+                <label>Context (optional — what is this for?)
+                  <textarea value={context} onChange={(e) => setContext(e.target.value)} rows={2} />
+                </label>
+                <div className="row">
+                  <button className="btn-primary" onClick={generate} disabled={loading || idea.trim().length < 3}>
+                    {loading ? "Engineering…" : "Engineer my prompt"}
+                  </button>
+                </div>
+                {error && <p className="error">{error}</p>}
+                <p className="muted">No API key needed here — prompt engineering is deterministic and runs offline.</p>
+              </section>
 
-        <footer className="sheet-foot">
-          PromptGPT v2 — backend and frontend deploy independently.
-        </footer>
+              {result ? (
+                <PromptResult result={result} onUseInChat={(p) => { setChatPrompt(p); setTab("chat"); }} />
+              ) : (
+                <section className="panel empty-state">
+                  <h2>Your engineered prompt will appear here</h2>
+                  <ol>
+                    <li>Write the idea in plain words on the left.</li>
+                    <li>PromptGPT structures it: role, objective, context, steps, constraints, output format.</li>
+                    <li>Copy it, send it to your favourite chatbot, or run it here with your own key.</li>
+                  </ol>
+                  <p>Try: “A modern personal portfolio website for a creative designer” or “Explain quantum physics to a 5-year-old using simple analogies”.</p>
+                </section>
+              )}
+            </div>
+          )}
+
+          {tab === "chat" && (
+            <div className="reveal-2">
+              <ChatPanel providers={providers} initialPrompt={chatPrompt} onNeedKey={() => setTab("keys")} />
+            </div>
+          )}
+
+          {tab === "keys" && (
+            <div className="reveal-2">
+              <KeysPanel providers={providers} />
+            </div>
+          )}
+
+          {tab === "history" && (
+            <section className="panel reveal-2">
+              <h2>Past prompts</h2>
+              {history.length === 0 && <p className="muted">Nothing yet — generate a prompt first.</p>}
+              {history.map((h) => (
+                <details key={h.id}>
+                  <summary>{h.idea}</summary>
+                  <pre className="document">{h.engineered_prompt}</pre>
+                  <div className="row">
+                    <button className="btn-secondary" onClick={() => { setChatPrompt(h.engineered_prompt); setTab("chat"); }}>Run this in Chat</button>
+                  </div>
+                </details>
+              ))}
+              {history.length > 0 && (
+                <button className="btn-danger" onClick={() => { setHistory([]); localStorage.removeItem("promptgpt:history"); }}>
+                  Clear history
+                </button>
+              )}
+            </section>
+          )}
+
+          <footer className="sheet-foot">
+            PromptGPT v2 — backend and frontend deploy independently.
+          </footer>
+        </div>
       </main>
     </div>
   );

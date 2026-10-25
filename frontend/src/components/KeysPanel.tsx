@@ -12,9 +12,6 @@ export default function KeysPanel({ providers }: Props) {
   const [saved, setSaved] = useState("");
   const [notice, setNotice] = useState("");
 
-  // Providers load after mount; sync saved keys in once they arrive.
-  // (Previously the initial state ran before providers loaded, so saved
-  // keys never prefilled the form.)
   useEffect(() => {
     setValues((prev) => {
       const next = { ...prev };
@@ -46,7 +43,7 @@ export default function KeysPanel({ providers }: Props) {
   }
 
   return (
-    <section className="card">
+    <section className="panel">
       <h2>Your API keys — bring your own</h2>
       <p className="muted">
         Keys are stored <strong>only in this browser</strong> (localStorage). They are sent
@@ -55,13 +52,13 @@ export default function KeysPanel({ providers }: Props) {
         key ever touches our servers beyond that single forward.
       </p>
       {providers.map((p) => (
-        <div key={p.id} className="key-row">
-          <div className="key-label">
+        <div key={p.id} className="setting-row">
+          <div className="setting-label">
             <h3>{p.name}</h3>
             <p>{p.key_help}</p>
-            <p className="small">Saved: {masked(getKey(p.id))}</p>
+            <p className="small">Saved: <span className="mono">{masked(getKey(p.id))}</span></p>
           </div>
-          <div className="key-panel">
+          <div className="setting-field">
             <label>
               API key
               <input
@@ -73,15 +70,15 @@ export default function KeysPanel({ providers }: Props) {
               />
             </label>
             <div className="row">
-              <button onClick={() => save(p.id)}>{saved === p.id ? "Saved" : "Save in this browser"}</button>
-              <button className="secondary" onClick={() => check(p.id)}>Check format</button>
+              <button className="btn-primary" onClick={() => save(p.id)}>{saved === p.id ? "Saved" : "Save in this browser"}</button>
+              <button className="btn-secondary" onClick={() => check(p.id)}>Check format</button>
             </div>
           </div>
         </div>
       ))}
       {notice && <p>{notice}</p>}
       <button
-        className="danger"
+        className="btn-danger"
         onClick={() => {
           clearAllKeys();
           setValues(Object.fromEntries(providers.map((p) => [p.id, ""])));
