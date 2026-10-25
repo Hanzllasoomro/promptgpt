@@ -1,45 +1,32 @@
-import { db } from "./db";
-import { generatedPrompts, type InsertGeneratedPrompt, type GeneratedPrompt } from "@shared/schema";
-import { chatStorage, type IChatStorage } from "./replit_integrations/chat/storage";
-import { desc, eq } from "drizzle-orm";
+import type { GeneratedPrompt, InsertGeneratedPrompt } from "@shared/schema";
 
-export interface IStorage extends IChatStorage {
+export interface IStorage {
   createGeneratedPrompt(prompt: InsertGeneratedPrompt): Promise<GeneratedPrompt>;
   getGeneratedPrompts(): Promise<GeneratedPrompt[]>;
   getGeneratedPrompt(id: number): Promise<GeneratedPrompt | undefined>;
 }
 
-export class DatabaseStorage implements IStorage {
-  // Inherit chat storage methods
-  getConversation = chatStorage.getConversation;
-  getAllConversations = chatStorage.getAllConversations;
-  createConversation = chatStorage.createConversation;
-  deleteConversation = chatStorage.deleteConversation;
-  getMessagesByConversation = chatStorage.getMessagesByConversation;
-  createMessage = chatStorage.createMessage;
+export class MemoryStorage implements IStorage {
+  private prompts: GeneratedPrompt[] = [];
+  private nextId = 1;
 
   async createGeneratedPrompt(prompt: InsertGeneratedPrompt): Promise<GeneratedPrompt> {
-    const [newPrompt] = await db
-      .insert(generatedPrompts)
-      .values(prompt)
-      .returning();
+    const newPrompt: GeneratedPrompt = {
+      ...prompt,
+      id: this.nextId++,
+      createdAt: new Date(),
+    };
+    this.prompts.unshift(newPrompt);
     return newPrompt;
   }
 
   async getGeneratedPrompts(): Promise<GeneratedPrompt[]> {
-    return await db
-      .select()
-      .from(generatedPrompts)
-      .orderBy(desc(generatedPrompts.createdAt));
+    return this.prompts;
   }
 
   async getGeneratedPrompt(id: number): Promise<GeneratedPrompt | undefined> {
-    const [prompt] = await db
-      .select()
-      .from(generatedPrompts)
-      .where(eq(generatedPrompts.id, id));
-    return prompt;
+    return this.prompts.find((prompt) => prompt.id === id);
   }
 }
 
-export const storage = new DatabaseStorage();
+export const storage = new MemoryStorage();

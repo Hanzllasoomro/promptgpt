@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertGeneratedPromptSchema, generatedPrompts } from './schema';
+import { insertGeneratedPromptSchema, type GeneratedPrompt } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -23,7 +23,7 @@ export const api = {
         idea: z.string().min(1, "Idea is required"),
       }),
       responses: {
-        200: z.custom<typeof generatedPrompts.$inferSelect>(),
+        200: z.custom<GeneratedPrompt>(),
         500: errorSchemas.internal,
       },
     },
@@ -31,14 +31,14 @@ export const api = {
       method: 'GET' as const,
       path: '/api/prompts',
       responses: {
-        200: z.array(z.custom<typeof generatedPrompts.$inferSelect>()),
+        200: z.array(z.custom<GeneratedPrompt>()),
       },
     },
     get: {
       method: 'GET' as const,
       path: '/api/prompts/:id',
       responses: {
-        200: z.custom<typeof generatedPrompts.$inferSelect>(),
+        200: z.custom<GeneratedPrompt>(),
         404: errorSchemas.notFound,
       },
     },

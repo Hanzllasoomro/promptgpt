@@ -1,6 +1,31 @@
-node_modules
-dist
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+.local/
+.config/
+
+# Runtime data and temporary uploads
+uploads/*
+!uploads/.gitkeep
+tmp/
+temp/
+*.tmp
+*.log
+
+# Operating system and editor files
 .DS_Store
-server/public
-vite.config.ts.*
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Archives and generated Vite config files
 *.tar.gz
+vite.config.ts.*
