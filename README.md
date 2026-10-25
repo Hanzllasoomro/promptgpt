@@ -30,19 +30,32 @@ promptgpt/
 ## Quick start
 
 ```bash
-# Backend (port 8000)
+# Terminal 1: backend (port 8000)
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 
-# Frontend (port 5173, proxies /api to the backend)
+# Terminal 2: frontend (port 5173, proxies /api to the backend)
 cd frontend
 npm install
 npm run dev
 ```
 
-Or everything at once:
+The backend and frontend are independent processes. Start them in separate
+terminals, or deploy them as separate services. For a frontend build that is
+served without the Vite development proxy, set the backend URL at build time:
+
+```bash
+cd frontend
+$env:VITE_API_URL = "https://your-backend.example.com" # PowerShell
+npm run build
+```
+
+The backend must allow the frontend origin through `CORS_ORIGINS`. For local
+development, its default includes `http://localhost:5173`.
+
+Or run both services with Docker:
 
 ```bash
 docker compose up --build

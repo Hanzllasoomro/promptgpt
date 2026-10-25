@@ -22,6 +22,8 @@ Vercel, Netlify, Render static, or the included nginx Dockerfile.
   Leave it empty only when the frontend is served behind the same origin
   that proxies `/api` to the backend (local Vite dev does this).
 - No server-side secret is needed for the frontend.
+- The frontend Dockerfile accepts `VITE_API_URL` as a build argument:
+  `docker build --build-arg VITE_API_URL=https://your-backend.example.com ./frontend`.
 
 ## Docker Compose (local / single VPS)
 
@@ -29,6 +31,6 @@ Vercel, Netlify, Render static, or the included nginx Dockerfile.
 docker compose up --build
 ```
 
-Note: the compose frontend is a static nginx build, so for production
-set `VITE_API_URL` at build time (edit `frontend/Dockerfile` to pass it
-as a build arg) instead of relying on the dev proxy.
+The compose frontend passes `http://localhost:8000` as its build-time API URL,
+so it can run independently from the backend container. For a remote backend,
+override the build argument in your deployment configuration.

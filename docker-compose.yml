@@ -9,7 +9,10 @@ services:
     # OPENAI_API_KEY: ${OPENAI_API_KEY:-}
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8000
     ports:
       - "5173:80"
     depends_on:
