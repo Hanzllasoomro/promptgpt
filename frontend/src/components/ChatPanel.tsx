@@ -39,7 +39,7 @@ export default function ChatPanel({ providers, initialPrompt, onNeedKey }: Props
         useLangChain,
       );
       setReply(res.reply);
-      setMeta(`${res.provider}, ${res.model}, via ${res.via}, ${res.latency_ms} ms`);
+      setMeta(`${res.provider} · ${res.model} · ${res.via} · ${res.latency_ms}ms`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Chat failed");
     } finally {
@@ -49,15 +49,15 @@ export default function ChatPanel({ providers, initialPrompt, onNeedKey }: Props
 
   return (
     <section className="panel">
-      <h2>Chat</h2>
+      <h2>Run your prompt</h2>
       <p className="muted">
-        Pick a provider, paste or generate a prompt, and run it here — no need to
-        leave PromptGPT. Your key is sent only with this request.
+        Select a provider, paste or generate a prompt, and execute it here.
+        Your API key is sent only with this request.
       </p>
       <div className="grid">
         <label>
           Provider
-          <select value={provider} onChange={(e) => { setProvider(e.target.value); setModel(""); }}>
+          <select id="chat-provider" value={provider} onChange={(e) => { setProvider(e.target.value); setModel(""); }}>
             {providers.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
@@ -66,6 +66,7 @@ export default function ChatPanel({ providers, initialPrompt, onNeedKey }: Props
         <label>
           Model
           <input
+            id="chat-model"
             value={model}
             placeholder={info?.default_model}
             onChange={(e) => setModel(e.target.value)}
@@ -80,29 +81,41 @@ export default function ChatPanel({ providers, initialPrompt, onNeedKey }: Props
       </div>
       {info?.supports_base_url && (
         <label>
-          Base URL (OpenAI-compatible server)
-          <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} />
+          Base URL
+          <span className="hint">OpenAI-compatible server endpoint</span>
+          <input id="chat-base-url" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} />
         </label>
       )}
-      <div className="composer" style={{ marginTop: "1rem" }}>
+      <div className="composer" style={{ marginTop: "var(--space-4)" }}>
         <label>
           Prompt
-          <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={6} placeholder="Paste or generate a prompt, then run it below" />
+          <textarea
+            id="chat-prompt"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            rows={6}
+            placeholder="Paste or generate a prompt, then run it below"
+          />
         </label>
         <div className="composer-foot">
           <label className="check" style={{ marginTop: 0 }}>
-            <input type="checkbox" checked={useLangChain} onChange={(e) => setUseLangChain(e.target.checked)} />
-            <span className="small">Run via LangChain (requires the optional LangChain packages on the backend)</span>
+            <input
+              id="langchain-toggle"
+              type="checkbox"
+              checked={useLangChain}
+              onChange={(e) => setUseLangChain(e.target.checked)}
+            />
+            <span className="small">Run via LangChain</span>
           </label>
-          <button className="btn-primary" onClick={run} disabled={loading || !prompt.trim()}>
+          <button id="chat-run-btn" className="btn-primary" onClick={run} disabled={loading || !prompt.trim()}>
             {loading ? "Running…" : "Run"}
           </button>
         </div>
       </div>
-      {!key && <p className="muted">No key saved for {info?.name} — add one in Keys.</p>}
+      {!key && <p className="muted" style={{ marginTop: "var(--space-3)" }}>No key saved for {info?.name} — add one in Keys.</p>}
       {error && <p className="error">{error}</p>}
       {reply && (
-        <div>
+        <div style={{ marginTop: "var(--space-4)" }}>
           <p className="small mono tabular">{meta}</p>
           <pre className="document">{reply}</pre>
         </div>

@@ -34,7 +34,7 @@ export default function KeysPanel({ providers }: Props) {
       const res = await checkKey(provider, values[provider] || "");
       setNotice(
         res.format_ok
-          ? "Format looks OK. A real provider call (in the Chat tab) is the true validity test."
+          ? "Format looks valid. A real provider call in the Chat tab is the true test."
           : "That does not look like a usable key yet.",
       );
     } catch (e) {
@@ -44,12 +44,11 @@ export default function KeysPanel({ providers }: Props) {
 
   return (
     <section className="panel">
-      <h2>Your API keys — bring your own</h2>
+      <h2>API keys — bring your own</h2>
       <p className="muted">
-        Keys are stored <strong>only in this browser</strong> (localStorage). They are sent
-        to your backend as a header on a chat request, forwarded once to the provider,
-        and never stored or logged server-side. There is no PromptGPT account and no
-        key ever touches our servers beyond that single forward.
+        Keys are stored <strong>only in this browser</strong> via localStorage. They are
+        forwarded once to the provider on a chat request — never stored or logged server-side.
+        There is no PromptGPT account.
       </p>
       {providers.map((p) => (
         <div key={p.id} className="setting-row">
@@ -62,6 +61,7 @@ export default function KeysPanel({ providers }: Props) {
             <label>
               API key
               <input
+                id={`key-${p.id}`}
                 type="password"
                 autoComplete="off"
                 placeholder="Paste your key here"
@@ -70,21 +70,26 @@ export default function KeysPanel({ providers }: Props) {
               />
             </label>
             <div className="row">
-              <button className="btn-primary" onClick={() => save(p.id)}>{saved === p.id ? "Saved" : "Save in this browser"}</button>
-              <button className="btn-secondary" onClick={() => check(p.id)}>Check format</button>
+              <button id={`save-${p.id}`} className="btn-primary" onClick={() => save(p.id)}>
+                {saved === p.id ? "✓ Saved" : "Save in browser"}
+              </button>
+              <button id={`check-${p.id}`} className="btn-secondary" onClick={() => check(p.id)}>
+                Check format
+              </button>
             </div>
           </div>
         </div>
       ))}
-      {notice && <p>{notice}</p>}
+      {notice && <p style={{ marginTop: "var(--space-3)" }}>{notice}</p>}
       <button
+        id="clear-all-keys"
         className="btn-danger"
         onClick={() => {
           clearAllKeys();
           setValues(Object.fromEntries(providers.map((p) => [p.id, ""])));
         }}
       >
-        Clear all keys from this browser
+        Clear all keys
       </button>
     </section>
   );

@@ -37,16 +37,18 @@ export default function PromptResult({ result, onUseInChat }: Props) {
       <div className="panel-head">
         <h2>Engineered prompt</h2>
         <div className="row" style={{ marginTop: 0 }}>
-          <button className="btn-secondary" onClick={() => copy(result.engineered_prompt)}>{copied ? "Copied" : "Copy prompt"}</button>
-          <button className="btn-primary" onClick={() => onUseInChat(result.engineered_prompt)}>
-            Run it with my key
+          <button id="copy-prompt" className="btn-secondary" onClick={() => copy(result.engineered_prompt)}>
+            {copied ? "✓ Copied" : "Copy"}
+          </button>
+          <button id="use-in-chat" className="btn-primary" onClick={() => onUseInChat(result.engineered_prompt)}>
+            Run with my key
           </button>
         </div>
       </div>
       <pre className="document">{result.engineered_prompt}</pre>
       <details>
         <summary>Concise version</summary>
-        <p>{result.concise_prompt}</p>
+        <p className="muted" style={{ marginTop: "var(--space-2)", lineHeight: "1.7" }}>{result.concise_prompt}</p>
       </details>
       <ul className="tips">
         {result.tips.map((t) => (
@@ -54,10 +56,12 @@ export default function PromptResult({ result, onUseInChat }: Props) {
         ))}
       </ul>
 
-      <div>
-        <h3>Send to your favourite chatbot</h3>
+      <div style={{ marginTop: "var(--space-4)" }}>
+        <h3>Send to a chatbot</h3>
         {!chatbots && (
-          <button className="btn-secondary" onClick={loadChatbots}>Show chatbot options</button>
+          <button id="show-chatbots" className="btn-secondary" onClick={loadChatbots} style={{ marginTop: "var(--space-2)" }}>
+            Show chatbot options
+          </button>
         )}
         {chatbotError && <p className="error">{chatbotError}</p>}
         {chatbots && (
@@ -70,9 +74,8 @@ export default function PromptResult({ result, onUseInChat }: Props) {
             ))}
           </div>
         )}
-        <p className="muted">
-          Prefilled links work where the chatbot accepts a prompt in the URL. For the rest,
-          PromptGPT copies the prompt first — you paste once after the chat opens.
+        <p className="muted" style={{ fontSize: "var(--text-small)" }}>
+          Prefilled links pass the prompt via URL. For others, the prompt is copied to your clipboard first.
         </p>
       </div>
     </section>
