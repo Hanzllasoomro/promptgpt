@@ -1,50 +1,33 @@
-# Frontend design — v3
+# Frontend design — v4
 
-Replaces the v2 “Framed sheet” look entirely. The v2 files are gone;
-this document is the current system.
+Replaces v3 entirely. The v3 files are gone; this document is the
+current system.
 
-## Reference: OpenAI, not a template
+## Reference: Claude, ChatGPT and Muse, adapted — not copied
 
-The model is OpenAI / ChatGPT's product surface: white ground, near-black
-text, quiet grey surfaces, one black primary action, generous whitespace,
-and type doing the work instead of decoration. No brand assets were
-copied — only that restraint, rebuilt here in our own tokens.
+No brand assets, logos or proprietary faces are copied. What is
+borrowed is the shared language of those products, recombined:
 
-## Skills used, and one deliberately not used
+- **ChatGPT's shell** — a dark sidebar for navigation, a light
+  working area, one black primary action, a rounded, softly shadowed
+  chat composer.
+- **Claude's warmth** — a warm paper canvas instead of stark white,
+  a single terracotta accent used only for "active" and "focus",
+  generous whitespace.
+- **Muse-style polish** — a geometric display face for titles, mono
+  for anything technical, quiet hairline borders and one restrained
+  shadow per card, nothing glossy.
 
-- **jakubkrehel/skills** (`better-typography`, `better-ui`, `better-layout`,
-  `better-colors`, `better-accessibility`): the type scale, spacing, motion
-  and colour rules below. Inter is the interface face it lists for this
-  category; JetBrains Mono is the mono outlier for keys and figures.
-- **Leonxlnx/taste-skill**: the anti-slop floor — no gradients, glows,
-  glass, emoji or purple-blue gradients; scale and full content instead
-  of ornament.
-- **Nutlope/hallmark**: the Floor — every colour and font goes through a
-  token, never `transition: all`, never animating width/height, instant
-  `:focus-visible`, a `prefers-reduced-motion` fallback, no invented
-  metrics, no eyebrow or tracked-capital labels, no card inside a card,
-  no decorative status dots, no arrows glued to link text, container
-  capped and centred. The CSS file opens with the Hallmark stamp.
-- **nextlevelbuilder/ui-ux-pro-max-skill**: its “Minimal Swiss” and
-  “Minimalism & Swiss Style” entries and its Inter-based pairings
-  (including Inter + JetBrains Mono for developer tools) confirm the
-  single-family choice; its pre-delivery checklist (contrast, keyboard,
-  visible focus, reduced motion) is the check used here.
-- **oso95/scroll-world**: read, not run. It is a paid AI-video pipeline
-  (Higgsfield stills plus Monid/Seedance video clips, roughly $27 for a
-  six-scene chain, plus paid accounts and auth) for scroll-cinematic
-  *landing pages*. PromptGPT is a working app, not a landing film, and
-  no budget or account was approved for that pipeline. Its only
-  contribution here is restraint: motion is entrance-only (opacity and
-  a 12px rise, staggered 100ms), never scroll-jacking, never video.
+## Fonts — built on the user's own index.html edit
 
-## Typography — the whole point of this version
+After v3, the user edited `frontend/index.html` on GitHub: a meta
+description, a dark theme colour, a favicon, and a new font line
+(Inter variable, Outfit, JetBrains Mono). v4 keeps all of that
+exactly and designs around it, instead of reverting to v3's fonts:
 
-Families (loaded in `index.html`, every weight the design uses, with a
-system fallback so an offline build still renders):
-
-- **Inter** (400, 500, 600, 700) — body and UI.
-- **Inter Tight** (600) — display titles only.
+- **Outfit** (300–700) — display titles and the wordmark only.
+  Geometric, high-tech, and already loaded by the user.
+- **Inter** (variable, 100–900, used at 400–700) — body and UI.
 - **JetBrains Mono** (400, 500) — API keys, model names, latency and
   other figures only. Prompt prose stays in Inter.
 
@@ -53,7 +36,7 @@ applies, with unitless line-heights:
 
 | Role | Size | Line-height | Weight | Tracking |
 | --- | --- | --- | --- | --- |
-| Display (page title) | 2.5rem | 1.1 | 600 | -0.02em |
+| Display (page title) | 2.75rem | 1.05 | 600 | -0.02em |
 | Title | 1.75rem | 1.2 | 600 | -0.01em |
 | Section | 1.25rem | 1.3 | 600 | -0.01em |
 | Body | 1rem | 1.6 | 400 | 0 |
@@ -69,37 +52,58 @@ Font smoothing is set once on the root, never per component.
 
 ## Colour — semantic tokens only
 
-No literal colour or font-family appears past the `:root` block in
-`styles.css`. Components reference semantic tokens only:
+No literal colour, shadow or font-family appears past the `:root`
+block in `styles.css`. Components reference semantic tokens only:
 
-Background white, subtle `#f9f9f9`, raised `#f4f4f4`, hover `#ececec`;
-border `#e5e5e5`, strong border `#d4d4d4`; text `#0d0d0d`,
-secondary `#5d5d5d`, tertiary `#8a8a8a` (small text only); primary
-black with white ink; success `#067647`; danger `#b42318`.
-One filled action per view gets the black fill; peers stay neutral
-with a border.
+Canvas warm paper `#faf9f5`, cards white, document and settings
+fields `#f5f4ef`, inputs `#fbfaf7`; border `#e7e5df`, strong
+border `#d9d6ce`; text `#141413`, secondary `#6b6a67`,
+tertiary `#8a8985` (small text only); primary `#171717` with white
+ink; accent terracotta `#d97757` — one meaning only: active
+navigation and keyboard focus; success `#067647`; danger `#b42318`.
+Sidebar: `#171717` ground, `#faf9f5` text, `#a8a8a3` secondary,
+`#262625` hover/active, `#2e2e2e` border.
 
 ## Layout
 
-App shell capped at 1440px and centred: a 260px sidebar in subtle
-grey (wordmark, navigation, API and key status) beside the main
-column, which is itself capped at 1152px. Groups are separated by
-32–48px, items inside a group by 8–16px. Generate is a two-column
-work grid (brief left, engineered prompt right). Keys is a settings
-grid (label column beside a field panel). On phones the sidebar
-becomes a top bar and every grid stacks; nothing is positioned with
-`order` or reversed grid placement, so visual order matches DOM order.
+App shell capped at 1440px and centred: a 272px dark sidebar
+(wordmark with a terracotta full stop, navigation, API and key
+status) beside the main column, capped at 1152px. Groups are
+separated by 32–48px, items inside a group by 8–16px. Generate is
+a two-column work grid (brief left, engineered prompt right).
+Keys is a settings grid (label column beside a field panel).
+The composer is a 24px rounded, softly shadowed card. On phones
+the sidebar becomes a dark top bar and every grid stacks; nothing
+is positioned with `order` or reversed grid placement, so visual
+order matches DOM order.
 
-## Motion
+## Motion and the Hallmark floor
 
 Named properties only (`background-color`, `border-color`, `opacity`,
 `transform`), 150ms for interaction, 300ms for infrequent entrances.
-A pressed button scales to 0.96. Entrances stagger 100ms (title,
-then content). Under `prefers-reduced-motion` all of it drops to no
-animation. Hover styles sit behind `@media (hover: hover)` so taps
-do not latch a hover state.
+A pressed button scales to 0.96. Entrances stagger 100ms. Under
+`prefers-reduced-motion` all of it drops to no animation. Hover
+styles sit behind `@media (hover: hover)`. Every colour and font
+goes through a token, never `transition: all`, never animating
+width/height, instant `:focus-visible` (in the accent colour),
+no invented metrics, no eyebrow or tracked-capital labels, no
+card inside a card, no decorative status dots, no arrows glued
+to link text, container capped and centred.
+
+## Persistence — what survives a restart
+
+This look change touches no state. PromptGPT's user state lives
+in browser localStorage, not server memory: API keys
+(`promptgpt:keys`) and generated history (`promptgpt:history`).
+Pulling v4, restarting the dev server, or restarting the machine
+does not wipe either — they live in the browser profile, and the
+backend is stateless. The only way to lose them is clearing
+browser storage or using the Keys / History clear buttons.
+Version marker for the stale-server check: `frontend/package.json`
+is `2.1.0` in v4. If the sidebar is still light grey, an old
+server is still serving the build — stop it first, then pull.
 
 ## Changing the look
 
 Change tokens in `styles.css` only. Do not add a second accent, a
-third typeface, or a new radius without recording the reason here.
+fourth typeface, or a new radius without recording the reason here.
