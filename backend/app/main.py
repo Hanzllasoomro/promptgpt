@@ -10,10 +10,12 @@ keeps deployment to a single container with no database to operate.
 
 from __future__ import annotations
 
+import json
 import time
 
 from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from .chatbots import chatbot_links
 from .config import get_settings
@@ -117,6 +119,61 @@ async def run_chat(
         via=via,
         latency_ms=int((time.monotonic() - started) * 1000),
         usage=usage,
+    )
+
+
+@app.post("/api/chat/run-stream")
+async def run_chat_stream(
+    req: ChatRequest,
+    x_llm_api_key: str | None = Header(default=None, alias="X-LLM-API-Key"),
+):
+    """Stream a chat reply as server-sent events.
+
+    Events are ``data: {"type": "delta", "text": "..."}`` per chunk,
+    then ``data: {"type": "done", "latency_ms": N}``. A provider error
+    mid-stream is ``data: {"type": "error", "detail": "..."}`` — the
+    HTTP status stays 200 because headers are already sent, so clients
+    must handle the error event. Key validation happens before the
+    stream starts, so a missing key or unknown provider still returns
+    a plain 400 like /api/chat/run. The LangChain path has no stream
+    equivalent and stays on /api/chat/run-langchain.
+    """
+    info = providers.PROVIDERS.get(req.provider)
+    if info is None:
+        raise HTTPException(400, f"Unknown provider: {req.provider}")
+    key = providers.resolve_key(req.provider, x_llm_api_key)
+    if not key or not is_plausible_key(key):
+        raise HTTPException(
+            400,
+            "No API key supplied. Add your key in the Keys tab (it stays in "
+            "your browser and is sent only with this request), or set the "
+            f"server-side {req.provider.upper()} key environment variable.",
+        )
+    started = time.monotonic()
+
+    async def event_source():
+        try:
+            async for chunk in providers.run_chat_stream(
+                provider=req.provider,
+                model=req.model or info.default_model,
+                prompt=req.prompt,
+                system=req.system,
+                temperature=req.temperature,
+                max_tokens=req.max_tokens,
+                api_key=key,
+                base_url=req.base_url,
+                timeout_s=settings.request_timeout_s,
+            ):
+                yield f"data: {json.dumps({'type': 'delta', 'text': chunk})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'latency_ms': int((time.monotonic() - started) * 1000)})}\n\n"
+        except Exception as exc:  # provider/network failure, not a key leak
+            detail = str(exc) if isinstance(exc, ValueError) else f"Provider call failed: {exc.__class__.__name__}"
+            yield f"data: {json.dumps({'type': 'error', 'detail': detail})}\n\n"
+
+    return StreamingResponse(
+        event_source(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 

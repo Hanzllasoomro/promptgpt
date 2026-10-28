@@ -163,6 +163,173 @@ async def run_chat(
     raise ValueError(f"Unknown provider: {provider}")
 
 
+def _google_chunk_text(data: dict) -> str:
+    """Text carried by one Gemini streamGenerateContent chunk, or ""."""
+    try:
+        parts = data["candidates"][0]["content"]["parts"]
+    except (KeyError, IndexError, TypeError):
+        return ""
+    return "".join(p.get("text", "") for p in parts if isinstance(p, dict))
+
+
+def _openai_chunk_text(data: dict) -> str:
+    """Text carried by one OpenAI-compatible stream chunk, or ""."""
+    try:
+        delta = data["choices"][0]["delta"]
+    except (KeyError, IndexError, TypeError):
+        return ""
+    return delta.get("content") or "" if isinstance(delta, dict) else ""
+
+
+def _anthropic_chunk_text(event: str, data: dict) -> str:
+    """Text carried by one Anthropic stream event, or ""."""
+    if event != "content_block_delta":
+        return ""
+    delta = data.get("delta") or {}
+    return delta.get("text", "") if isinstance(delta, dict) else ""
+
+
+def _stream_error_message(status: int, body: bytes, provider: str) -> str:
+    """Provider error text from a streamed error body, without headers."""
+    try:
+        import json as _json
+
+        detail = _json.loads(body.decode("utf-8", "replace"))
+        msg = detail.get("error", {}).get("message") or detail.get("error") or body.decode("utf-8", "replace")
+    except Exception:
+        msg = body.decode("utf-8", "replace")
+    return f"{provider} returned {status}: {str(msg)[:500]}"
+
+
+async def run_chat_stream(
+    provider: str,
+    model: str,
+    prompt: str,
+    system: str,
+    temperature: float,
+    max_tokens: int,
+    api_key: str,
+    base_url: str,
+    timeout_s: float,
+):
+    """Yield reply text as it arrives. Raises ValueError / httpx errors.
+
+    Unlike :func:`run_chat`, this never waits for the whole reply: each
+    provider chunk is yielded as soon as it is parsed. The httpx read
+    timeout applies per chunk, not to the whole generation, so a long
+    reply does not hit the timeout just for being long — only a stall
+    between chunks does.
+    """
+    info = PROVIDERS.get(provider)
+    if info is None:
+        raise ValueError(f"Unknown provider: {provider}")
+    model = model or info.default_model
+    timeout = httpx.Timeout(timeout_s)
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        if provider in ("openai", "huggingface", "openai-compatible"):
+            url = _openai_url(provider, base_url)
+            payload = {
+                "model": model,
+                "messages": _messages(prompt, system),
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "stream": True,
+            }
+            headers = {"Authorization": f"Bearer {api_key}"}
+            if provider == "huggingface":
+                headers["Content-Type"] = "application/json"
+            async with client.stream("POST", url, json=payload, headers=headers) as resp:
+                if resp.status_code >= 400:
+                    raise ValueError(_stream_error_message(resp.status_code, await resp.aread(), provider))
+                async for line in resp.aiter_lines():
+                    line = line.strip()
+                    if not line.startswith("data:"):
+                        continue
+                    data_text = line[5:].strip()
+                    if data_text == "[DONE]":
+                        break
+                    try:
+                        import json as _json
+
+                        data = _json.loads(data_text)
+                    except Exception:
+                        continue
+                    text = _openai_chunk_text(data)
+                    if text:
+                        yield text
+            return
+
+        if provider == "anthropic":
+            async with client.stream(
+                "POST",
+                "https://api.anthropic.com/v1/messages",
+                json={
+                    "model": model,
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                    "system": system or "You are a helpful assistant.",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "stream": True,
+                },
+                headers={
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+            ) as resp:
+                if resp.status_code >= 400:
+                    raise ValueError(_stream_error_message(resp.status_code, await resp.aread(), provider))
+                event = ""
+                async for line in resp.aiter_lines():
+                    line = line.strip()
+                    if line.startswith("event:"):
+                        event = line[6:].strip()
+                    elif line.startswith("data:"):
+                        try:
+                            import json as _json
+
+                            data = _json.loads(line[5:].strip())
+                        except Exception:
+                            continue
+                        text = _anthropic_chunk_text(event, data)
+                        if text:
+                            yield text
+            return
+
+        if provider == "google":
+            async with client.stream(
+                "POST",
+                f"https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent",
+                params={"key": api_key, "alt": "sse"},
+                json={
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "systemInstruction": {"parts": [{"text": system}]} if system.strip() else None,
+                    "generationConfig": {
+                        "temperature": temperature,
+                        "maxOutputTokens": max_tokens,
+                    },
+                },
+            ) as resp:
+                if resp.status_code >= 400:
+                    raise ValueError(_stream_error_message(resp.status_code, await resp.aread(), provider))
+                async for line in resp.aiter_lines():
+                    line = line.strip()
+                    if not line.startswith("data:"):
+                        continue
+                    try:
+                        import json as _json
+
+                        data = _json.loads(line[5:].strip())
+                    except Exception:
+                        continue
+                    text = _google_chunk_text(data)
+                    if text:
+                        yield text
+            return
+
+    raise ValueError(f"Unknown provider: {provider}")
+
+
 def _openai_url(provider: str, base_url: str) -> str:
     if provider == "huggingface":
         return "https://router.huggingface.co/v1/chat/completions"
