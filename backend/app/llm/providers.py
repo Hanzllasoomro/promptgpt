@@ -34,8 +34,8 @@ PROVIDERS: dict[str, ProviderInfo] = {
     "google": ProviderInfo(
         id="google",
         name="Google (Gemini)",
-        default_model="gemini-2.0-flash",
-        models=["gemini-2.0-flash", "gemini-1.5-pro"],
+        default_model="gemini-3.8-flash",
+        models=["gemini-3.8-flash", "gemini-2.0-flash", "gemini-1.5-pro"],
         key_help="Create one at aistudio.google.com → Get API key.",
     ),
     "huggingface": ProviderInfo(
