@@ -8,6 +8,25 @@ Body: `{ idea, task_type?, audience?, tone?, output_format?, length?, constraint
 Returns: `{ original_idea, engineered_prompt, concise_prompt, tips, task_type }`
 No key needed. Deterministic, offline.
 
+## Accuracy rules (behind every model call)
+
+Both surfaces that send text to a model carry the same rules, from
+`backend/app/prompt_rules.py`:
+
+- **Generate** appends an "Accuracy rules" section to every engineered
+  prompt: no bracketed placeholders (`[Name]`, `[Client]`…), no
+  invented names/dates/prices/facts, and missing details become
+  *stated assumptions* — never silently baked in. Generate is
+  single-shot, so it never tells the model to "ask a clarifying
+  question": there is no follow-up to ask in.
+- **Chat** (`/api/chat/run`, `/api/chat/run-stream`,
+  `/api/chat/run-langchain`) sends a default system prompt with the
+  same rules when the caller supplies no `system`. Chat is
+  multi-turn, so the default may ask exactly one focused question
+  when the answer cannot be written without a missing detail, instead
+  of producing a template full of blanks. A caller-supplied `system`
+  always wins over the default.
+
 ## GET /api/providers
 
 Returns the provider catalogue: ids, display names, default/suggested

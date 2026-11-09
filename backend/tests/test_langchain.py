@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from app.llm import langchain_client
 from app.main import app
+from app.prompt_rules import DEFAULT_CHAT_SYSTEM_PROMPT
 
 client = TestClient(app)
 OPENAI_KEY = "sk-testkey"
@@ -57,7 +58,7 @@ def test_run_langchain_openai_replies_with_history(monkeypatch):
     assert FakeLLM.last_kwargs["model"] == "gpt-4o-mini"
     assert FakeLLM.last_kwargs["api_key"] == OPENAI_KEY
     assert message_summary() == [
-        ("system", "You are a helpful assistant."),
+        ("system", DEFAULT_CHAT_SYSTEM_PROMPT),
         ("human", "What is 2+2?"),
         ("ai", "4"),
         ("human", "And 3+3?"),
@@ -77,7 +78,21 @@ def test_run_langchain_google_single_prompt(monkeypatch):
     assert FakeLLM.last_kwargs["model"] == "gemini-3.8-flash"
     assert FakeLLM.last_kwargs["google_api_key"] == GOOGLE_KEY
     assert message_summary() == [
-        ("system", "You are a helpful assistant."),
+        ("system", DEFAULT_CHAT_SYSTEM_PROMPT),
+        ("human", "Say hi"),
+    ]
+
+
+def test_run_langchain_custom_system_wins_over_default(monkeypatch):
+    monkeypatch.setattr("langchain_openai.ChatOpenAI", FakeLLM)
+    r = client.post(
+        "/api/chat/run-langchain",
+        json={"provider": "openai", "prompt": "Say hi", "system": "Be terse."},
+        headers={"X-LLM-API-Key": OPENAI_KEY},
+    )
+    assert r.status_code == 200
+    assert message_summary() == [
+        ("system", "Be terse."),
         ("human", "Say hi"),
     ]
 

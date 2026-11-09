@@ -17,6 +17,7 @@ import httpx
 
 from ..config import get_settings
 from ..models import ProviderInfo
+from ..prompt_rules import DEFAULT_CHAT_SYSTEM_PROMPT
 
 PROVIDERS: dict[str, ProviderInfo] = {
     "openai": ProviderInfo(
@@ -176,13 +177,21 @@ def _error_from_body(status: int, body: bytes, provider: str) -> ProviderError:
     return ProviderError(provider, status, f"{provider} returned {status}: {str(msg)[:500]}")
 
 
+def _effective_system(system: str) -> str:
+    """The system prompt actually sent: the caller's own system prompt
+    when one was given, otherwise the platform default, which carries
+    the accuracy rules (no placeholders, no invented facts, state
+    assumptions). Chat used to run with no system prompt at all, which
+    left the model free to answer with bracketed templates."""
+    return system.strip() or DEFAULT_CHAT_SYSTEM_PROMPT
+
+
 def _messages(prompt: str, system: str, turns: list[dict] | None = None) -> list[dict]:
-    """OpenAI-style message list: an optional system message, then the
-    conversation turns (which already end with the latest user prompt),
-    or just the single prompt when there is no history."""
-    msgs: list[dict] = []
-    if system.strip():
-        msgs.append({"role": "system", "content": system.strip()})
+    """OpenAI-style message list: the system message first (the
+    caller's own, or the platform default), then the conversation
+    turns (which already end with the latest user prompt), or just the
+    single prompt when there is no history."""
+    msgs: list[dict] = [{"role": "system", "content": _effective_system(system)}]
     if turns:
         msgs.extend({"role": t["role"], "content": t["content"]} for t in turns)
     else:
@@ -248,7 +257,7 @@ async def run_chat(
                     "model": model,
                     "max_tokens": max_tokens,
                     "temperature": temperature,
-                    "system": system or "You are a helpful assistant.",
+                    "system": _effective_system(system),
                     "messages": [{"role": t["role"], "content": t["content"]} for t in turns],
                 },
                 headers={
@@ -268,7 +277,7 @@ async def run_chat(
                     resp = await client.post(
                         f"https://generativelanguage.googleapis.com/v1beta/models/{candidate}:generateContent",
                         params={"key": api_key},
-                        json=_google_payload(prompt, system, temperature, max_tokens, turns),
+                        json=_google_payload(prompt, _effective_system(system), temperature, max_tokens, turns),
                     )
                     if resp.status_code < 400:
                         data = resp.json()
@@ -423,7 +432,7 @@ async def run_chat_stream(
                         "model": model,
                         "max_tokens": max_tokens,
                         "temperature": temperature,
-                        "system": system or "You are a helpful assistant.",
+                        "system": _effective_system(system),
                         "messages": [{"role": t["role"], "content": t["content"]} for t in turns],
                         "stream": True,
                     },
@@ -471,7 +480,7 @@ async def run_chat_stream(
                         "POST",
                         f"https://generativelanguage.googleapis.com/v1beta/models/{candidate}:streamGenerateContent",
                         params={"key": api_key, "alt": "sse"},
-                        json=_google_payload(prompt, system, temperature, max_tokens, turns),
+                        json=_google_payload(prompt, _effective_system(system), temperature, max_tokens, turns),
                     ) as resp:
                         if resp.status_code >= 400:
                             err = _error_from_body(resp.status_code, await resp.aread(), provider)

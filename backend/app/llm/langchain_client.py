@@ -13,6 +13,8 @@ persisted by PromptGPT.
 
 from __future__ import annotations
 
+from ..prompt_rules import DEFAULT_CHAT_SYSTEM_PROMPT
+
 
 def available() -> bool:
     try:
@@ -71,7 +73,7 @@ async def run_with_langchain(
     if not turns or turns[-1]["role"] != "user" or turns[-1]["content"] != prompt:
         turns.append({"role": "user", "content": prompt})
     turns = turns[-20:]
-    chat_messages = [SystemMessage(system or "You are a helpful assistant.")]
+    chat_messages = [SystemMessage(system.strip() or DEFAULT_CHAT_SYSTEM_PROMPT)]
     for turn in turns:
         chat_messages.append(
             HumanMessage(turn["content"])

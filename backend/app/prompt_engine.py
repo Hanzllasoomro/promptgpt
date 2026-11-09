@@ -13,6 +13,11 @@ becomes an explicit assumption, not a silently invented detail.
 from __future__ import annotations
 
 from .models import GenerateRequest
+from .prompt_rules import (
+    CONCISE_GUARDRAIL,
+    GENERATE_GUARDRAILS,
+    GENERATE_QUALITY_CHECK,
+)
 
 TASK_ROLES = {
     "general": "a thoughtful expert who turns an idea into a clear, useful result",
@@ -94,10 +99,10 @@ def build_engineered_prompt(req: GenerateRequest) -> tuple[str, str, list[str]]:
         lines.append(context)
     lines.append(f"Audience: {audience}.")
     lines.append(f"Tone: {tone}.")
-    lines.append(
-        "Ask a focused clarifying question only when a missing detail would "
-        "materially change the result; otherwise state your assumption and proceed."
-    )
+    # No "ask a clarifying question" here: Generate is single-shot, so
+    # the model cannot ask and get an answer — telling it to ask made
+    # it proceed with bracketed blanks instead. The Accuracy rules
+    # below cover missing details as stated assumptions.
     lines += ["", "## Steps"]
     lines += [f"{i}. {s}" for i, s in enumerate(steps, 1)]
     lines += ["", "## Requirements"]
@@ -113,16 +118,19 @@ def build_engineered_prompt(req: GenerateRequest) -> tuple[str, str, list[str]]:
         "## Output format",
         output_format,
         "",
+    ]
+    lines.append(GENERATE_GUARDRAILS)
+    lines += [
+        "",
         "## Quality check",
-        "Before finishing, verify the answer directly addresses the objective, "
-        "respects every constraint above, and has no invented facts.",
+        GENERATE_QUALITY_CHECK,
     ]
     engineered = "\n".join(lines).strip() + "\n"
 
     concise = (
         f"Act as {role}. {idea} "
         f"For {audience}, in a {tone} tone. {length} "
-        f"Output: {output_format}."
+        f"Output: {output_format}. {CONCISE_GUARDRAIL}"
     )
     if constraints:
         concise += " Constraints: " + "; ".join(constraints) + "."

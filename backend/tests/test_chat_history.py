@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from app.llm import providers
 from app.main import app
+from app.prompt_rules import DEFAULT_CHAT_SYSTEM_PROMPT
 
 client = TestClient(app)
 KEY = "AIzaSyFakeFakeFakeFakeFakeFakeFakeFake12"
@@ -91,7 +92,10 @@ def test_openai_history_sent_in_order(monkeypatch):
     reply, _usage, _used = run(monkeypatch, "openai", script, calls, api_key="sk-test")
     assert reply == "6"
     sent = calls[0][2]["messages"]
-    assert sent == HISTORY  # no system message when system is empty
+    # The platform default system prompt is always sent first, then the
+    # history in order — chat no longer runs with no system prompt.
+    assert sent[0] == {"role": "system", "content": DEFAULT_CHAT_SYSTEM_PROMPT}
+    assert sent[1:] == HISTORY
 
 
 def test_google_history_uses_model_role(monkeypatch):
@@ -131,8 +135,10 @@ def test_history_capped_at_most_recent_20(monkeypatch):
         messages=many, prompt="m24",
     )
     sent = calls[0][2]["messages"]
-    assert len(sent) == 20
-    assert sent[0]["content"] == "m5"
+    # 20 history turns plus the default system message on top.
+    assert len(sent) == 21
+    assert sent[0] == {"role": "system", "content": DEFAULT_CHAT_SYSTEM_PROMPT}
+    assert sent[1]["content"] == "m5"
     assert sent[-1]["content"] == "m24"
 
 
@@ -140,7 +146,10 @@ def test_prompt_only_stays_single_turn(monkeypatch):
     calls = []
     script = [FakeResp(200, {"choices": [{"message": {"content": "hi"}}], "usage": {}})]
     _reply, _usage, _used = run(monkeypatch, "openai", script, calls, api_key="sk-test", prompt="Hello", messages=[])
-    assert calls[0][2]["messages"] == [{"role": "user", "content": "Hello"}]
+    assert calls[0][2]["messages"] == [
+        {"role": "system", "content": DEFAULT_CHAT_SYSTEM_PROMPT},
+        {"role": "user", "content": "Hello"},
+    ]
 
 
 def test_stream_history_sent_to_google(monkeypatch):
