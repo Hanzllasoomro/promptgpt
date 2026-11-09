@@ -13,6 +13,21 @@ uvicorn app.main:app --reload --port 8000
 
 Docs at http://localhost:8000/docs
 
+## LangChain (optional)
+
+The default chat path uses lightweight httpx adapters and needs no
+LangChain. To enable the LangChain path (`POST /api/chat/run-langchain`,
+and the "Run via LangChain" checkbox in the Chat tab), install the
+optional packages into the same venv and restart the server:
+
+```bash
+pip install -r requirements-langchain.txt
+```
+
+Verify with `GET /api/health` — it reports `"langchain_available": true`.
+Without the packages the endpoint returns 501 with these instructions
+instead of failing. Conversation history works on both paths.
+
 ## API
 
 | Method | Path | Purpose |

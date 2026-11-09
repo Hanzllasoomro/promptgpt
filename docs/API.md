@@ -57,8 +57,12 @@ cancel a stream (Stop button); the partial reply stays on screen.
 
 ## POST /api/chat/run-langchain
 
-Same shape, `via: "langchain"`. Requires `requirements-langchain.txt`;
-otherwise 501 with installation instructions.
+Same shape, `via: "langchain"`. Requires `requirements-langchain.txt`
+(`pip install -r requirements-langchain.txt` in the backend venv, then
+restart); otherwise 501 with installation instructions. `GET
+/api/health` reports `"langchain_available": true` when it is ready.
+Conversation history (`messages`) works here too, sent as LangChain
+message objects.
 
 ## POST /api/keys/check?provider=…
 
