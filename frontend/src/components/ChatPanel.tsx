@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { runChat, runChatStream } from "../api";
-import { getKey } from "../keys";
+import { getKey, getLastProvider, hasKey, setLastProvider } from "../keys";
 import type { ProviderInfo } from "../types";
 
 interface Props {
@@ -9,8 +9,19 @@ interface Props {
   onNeedKey: () => void;
 }
 
+/** Opening provider: the last one used, else the first provider with a
+ * saved key, else OpenAI. Previously this was always OpenAI, so a user
+ * with only a Gemini key saved hit "No OpenAI key saved" on every Run. */
+function pickInitialProvider(providers: ProviderInfo[]): string {
+  const saved = getLastProvider();
+  if (saved && providers.some((p) => p.id === saved)) return saved;
+  const withKey = providers.find((p) => hasKey(p.id));
+  if (withKey) return withKey.id;
+  return "openai";
+}
+
 export default function ChatPanel({ providers, initialPrompt, onNeedKey }: Props) {
-  const [provider, setProvider] = useState("openai");
+  const [provider, setProvider] = useState(() => pickInitialProvider(providers));
   const [model, setModel] = useState("");
   const [baseUrl, setBaseUrl] = useState("http://localhost:11434/v1");
   const [prompt, setPrompt] = useState(initialPrompt);
@@ -19,20 +30,45 @@ export default function ChatPanel({ providers, initialPrompt, onNeedKey }: Props
   const [meta, setMeta] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [needsKey, setNeedsKey] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const userPickedProvider = useRef(false);
+
+  // Providers load after first render: apply the remembered / keyed
+  // provider once they arrive, unless the user already chose one.
+  useEffect(() => {
+    if (userPickedProvider.current || providers.length === 0) return;
+    const picked = pickInitialProvider(providers);
+    if (picked !== provider) {
+      setProvider(picked);
+      setModel("");
+    }
+  }, [providers, provider]);
 
   const info = providers.find((p) => p.id === provider);
   const key = getKey(provider);
   const effectiveModel = model || info?.default_model || "";
 
+  function chooseProvider(next: string) {
+    userPickedProvider.current = true;
+    setProvider(next);
+    setLastProvider(next);
+    setModel("");
+  }
+
   async function run() {
     setLoading(true);
     setError("");
+    setNeedsKey(false);
     setReply("");
     try {
       if (!key && provider !== "openai-compatible") {
-        onNeedKey();
-        throw new Error(`No ${info?.name} key saved. Add it in the Keys tab first.`);
+        // Stay on this tab so the error stays visible: previously this
+        // switched to the Keys tab, which unmounted this panel and
+        // discarded the error before the user could read it.
+        setError(`No ${info?.name} key saved. Add it in the Keys tab first.`);
+        setNeedsKey(true);
+        return;
       }
       if (useLangChain) {
         // LangChain has no streaming path: the whole reply arrives at once.
@@ -83,7 +119,7 @@ export default function ChatPanel({ providers, initialPrompt, onNeedKey }: Props
       <div className="grid">
         <label>
           Provider
-          <select value={provider} onChange={(e) => { setProvider(e.target.value); setModel(""); }}>
+          <select value={provider} onChange={(e) => chooseProvider(e.target.value)}>
             {providers.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
@@ -131,7 +167,16 @@ export default function ChatPanel({ providers, initialPrompt, onNeedKey }: Props
         </div>
       </div>
       {!key && <p className="muted">No key saved for {info?.name} — add one in Keys.</p>}
-      {error && <p className="error">{error}</p>}
+      {error && (
+        <div>
+          <p className="error">{error}</p>
+          {needsKey && (
+            <div className="row">
+              <button className="btn-secondary" onClick={onNeedKey}>Go to Keys</button>
+            </div>
+          )}
+        </div>
+      )}
       {reply && (
         <div>
           <p className="small mono tabular">{meta}</p>

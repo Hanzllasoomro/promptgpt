@@ -77,6 +77,23 @@ def resolve_key(provider: str, header_key: str | None) -> str | None:
     return None
 
 
+def _google_payload(prompt: str, system: str, temperature: float, max_tokens: int) -> dict:
+    """generateContent body. ``systemInstruction`` is omitted entirely
+    when no system instruction was given: sending it as ``null`` is
+    not a valid Content and some Google API surfaces reject the request
+    for it, so the field must not be present at all."""
+    payload: dict = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": temperature,
+            "maxOutputTokens": max_tokens,
+        },
+    }
+    if system.strip():
+        payload["systemInstruction"] = {"parts": [{"text": system}]}
+    return payload
+
+
 def _messages(prompt: str, system: str) -> list[dict]:
     msgs: list[dict] = []
     if system.strip():
@@ -146,14 +163,7 @@ async def run_chat(
             resp = await client.post(
                 f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
                 params={"key": api_key},
-                json={
-                    "contents": [{"parts": [{"text": prompt}]}],
-                    "systemInstruction": {"parts": [{"text": system}]} if system.strip() else None,
-                    "generationConfig": {
-                        "temperature": temperature,
-                        "maxOutputTokens": max_tokens,
-                    },
-                },
+                json=_google_payload(prompt, system, temperature, max_tokens),
             )
             _raise(resp, provider)
             data = resp.json()
@@ -301,14 +311,7 @@ async def run_chat_stream(
                 "POST",
                 f"https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent",
                 params={"key": api_key, "alt": "sse"},
-                json={
-                    "contents": [{"parts": [{"text": prompt}]}],
-                    "systemInstruction": {"parts": [{"text": system}]} if system.strip() else None,
-                    "generationConfig": {
-                        "temperature": temperature,
-                        "maxOutputTokens": max_tokens,
-                    },
-                },
+                json=_google_payload(prompt, system, temperature, max_tokens),
             ) as resp:
                 if resp.status_code >= 400:
                     raise ValueError(_stream_error_message(resp.status_code, await resp.aread(), provider))
