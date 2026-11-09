@@ -23,14 +23,12 @@ const TABS = [
 
 type Tab = (typeof TABS)[number]["id"];
 
-const PAGE_HEADS: Record<Tab, { title: string; text: string }> = {
+// Chat has no entry: its panel carries its own provider/model header,
+// so the page header would just repeat it.
+const PAGE_HEADS: Partial<Record<Tab, { title: string; text: string }>> = {
   generate: {
     title: "Make a better prompt",
     text: "Write an idea in plain words. PromptGPT turns it into a structured prompt you can send or run.",
-  },
-  chat: {
-    title: "Run it with your key",
-    text: "Choose a provider and run the prompt here, using only your own API key.",
   },
   keys: {
     title: "Your keys, your browser",
@@ -169,10 +167,12 @@ export default function App() {
 
       <main className="main">
         <div className="main-inner">
-          <div className="page-head reveal">
-            <h1>{head.title}</h1>
-            <p>{head.text}</p>
-          </div>
+          {head && (
+            <div className="page-head reveal">
+              <h1>{head.title}</h1>
+              <p>{head.text}</p>
+            </div>
+          )}
 
           {tab === "generate" && (
             <div className="work-grid reveal-2">
