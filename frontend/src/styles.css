@@ -81,10 +81,13 @@ button:not(:disabled):active { transform: scale(0.96); }
 ::selection { background: var(--color-text); color: var(--color-primary-ink); }
 
 /* ---- Layout: dark sidebar (ChatGPT) beside a warm paper canvas (Claude) ---- */
+/* Full-bleed shell: the sidebar must touch the left edge of the
+ * window, so the shell has no max-width. (It used to be capped at
+ * 90rem and centred, which floated the sidebar 12px+ off the edge on
+ * any window wider than 1440px.) The reading column stays capped by
+ * .main-inner (72rem, centred), so wide screens don't stretch text. */
 .app {
   display: flex;
-  max-width: 90rem;
-  margin-inline: auto;
   min-height: 100dvh;
 }
 
