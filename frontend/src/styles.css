@@ -569,7 +569,6 @@ details .document { margin-top: var(--space-2); }
   vertical-align: text-bottom;
 }
 
-.sheet-foot { margin-top: var(--space-5); font-size: var(--text-small); color: var(--color-text-secondary); }
 
 /* ---- Entrance motion: infrequent views only, never on routine interaction ---- */
 @media (prefers-reduced-motion: no-preference) {

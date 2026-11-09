@@ -275,9 +275,6 @@ export default function App() {
             </section>
           )}
 
-          <footer className="sheet-foot">
-            PromptGPT — engineered prompts, your keys, your browser.
-          </footer>
         </div>
       </main>
     </div>
