@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { runChat, runChatStream } from "../api";
 import {
-  loadConversations,
   newConversation,
   newId,
-  saveConversations,
   titleFor,
   transcriptMarkdown,
   type ChatMessage,
@@ -18,6 +16,11 @@ interface Props {
   providers: ProviderInfo[];
   initialPrompt: string;
   onNeedKey: () => void;
+  /** Conversations live in App (the single sidebar lists them). */
+  conversations: Conversation[];
+  activeId: string;
+  onConversations: (next: Conversation[] | ((prev: Conversation[]) => Conversation[])) => void;
+  onActiveId: (id: string) => void;
 }
 
 const SUGGESTED_PROMPTS = [
@@ -51,13 +54,17 @@ async function copyText(text: string): Promise<void> {
   }
 }
 
-export default function ChatPanel({ providers, initialPrompt, onNeedKey }: Props) {
-  const [initialConversations] = useState<Conversation[]>(() => {
-    const loaded = loadConversations();
-    return loaded.length > 0 ? loaded : [newConversation()];
-  });
-  const [conversations, setConversations] = useState(initialConversations);
-  const [activeId, setActiveId] = useState(initialConversations[0].id);
+export default function ChatPanel({
+  providers,
+  initialPrompt,
+  onNeedKey,
+  conversations,
+  activeId,
+  onConversations,
+  onActiveId,
+}: Props) {
+  const setConversations = onConversations;
+  const setActiveId = onActiveId;
   const [provider, setProvider] = useState(() => pickInitialProvider(providers));
   const [model, setModel] = useState("");
   const [baseUrl, setBaseUrl] = useState("http://localhost:11434/v1");
@@ -94,11 +101,6 @@ export default function ChatPanel({ providers, initialPrompt, onNeedKey }: Props
     if (initialPrompt) setInput(initialPrompt);
   }, [initialPrompt]);
 
-  // Conversations persist in the browser, like API keys.
-  useEffect(() => {
-    saveConversations(conversations);
-  }, [conversations]);
-
   // Auto-grow the input, and keep the stream pinned to the bottom
   // while new content arrives (unless the user scrolled up to read).
   useEffect(() => {
@@ -127,15 +129,6 @@ export default function ChatPanel({ providers, initialPrompt, onNeedKey }: Props
     setConversations((prev) =>
       prev.map((c) => (c.id === id ? { ...c, messages: patch(c.messages) } : c)),
     );
-  }
-
-  function startNew() {
-    const convo = newConversation();
-    setConversations((prev) => [convo, ...prev]);
-    setActiveId(convo.id);
-    setError("");
-    setNeedsKey(false);
-    inputRef.current?.focus();
   }
 
   function deleteActive() {
@@ -299,27 +292,7 @@ export default function ChatPanel({ providers, initialPrompt, onNeedKey }: Props
 
   return (
     <section className="panel chat-panel">
-      <div className="chat-shell">
-        <aside className="chat-history" aria-label="Conversations">
-          <button className="btn-primary chat-new" onClick={startNew} disabled={streaming}>
-            + New chat
-          </button>
-          <ul>
-            {conversations.map((c) => (
-              <li key={c.id}>
-                <button
-                  className={c.id === active?.id ? "active" : ""}
-                  onClick={() => setActiveId(c.id)}
-                  title={c.title}
-                >
-                  {c.title}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </aside>
-
-        <div className="chat-main">
+      <div className="chat-main">
           <header className="chat-header">
             <h2>Chat</h2>
             <span className="model-badge" title="Active model">
@@ -482,7 +455,6 @@ export default function ChatPanel({ providers, initialPrompt, onNeedKey }: Props
             </div>
           </div>
           {!key && <p className="muted">No key saved for {info?.name} — add one in Keys.</p>}
-        </div>
       </div>
     </section>
   );

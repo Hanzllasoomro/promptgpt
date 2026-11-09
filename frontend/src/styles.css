@@ -437,27 +437,32 @@ details .document { margin-top: var(--space-2); }
 
 /* ---- Chat: single-pane stream with a conversation sidebar ---- */
 .chat-panel { padding: var(--space-2); }
-.chat-shell {
-  display: grid;
-  grid-template-columns: 15rem minmax(0, 1fr);
-  gap: var(--space-2);
-  align-items: start;
-}
-.chat-history {
-  border-inline-end: 1px solid var(--color-border);
-  padding-inline-end: var(--space-2);
-  position: sticky;
-  top: var(--space-2);
+/* ---- Sidebar chats: New chat + history at the top of the one sidebar,
+ * the menu sits at the bottom. The list grows to fill the space, so the
+ * menu stays pinned to the bottom while chats scroll. ---- */
+.side-chats {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 .chat-new { width: 100%; margin-bottom: var(--space-2); }
-.chat-history ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
-.chat-history li button {
+/* The primary button is the same near-black as the sidebar, so the
+ * sidebar's New chat gets the terracotta accent instead. */
+.side-chats .chat-new {
+  background: var(--color-accent);
+  color: var(--color-primary-ink);
+}
+.side-chats ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+.side-chats li button {
   display: block;
   width: 100%;
   background: transparent;
   border: 0;
   border-radius: var(--radius-control);
-  color: var(--color-text-secondary);
+  color: var(--color-sidebar-secondary);
   padding: 0.5rem 0.75rem;
   text-align: start;
   font-size: var(--text-ui);
@@ -468,9 +473,9 @@ details .document { margin-top: var(--space-2); }
   transition-duration: 150ms;
   transition-timing-function: var(--ease-out);
 }
-.chat-history li button.active {
-  background: var(--color-bg-hover);
-  color: var(--color-text);
+.side-chats li button.active {
+  background: var(--color-sidebar-hover);
+  color: var(--color-sidebar-text);
   box-shadow: inset 3px 0 0 var(--color-accent);
 }
 .chat-main { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
@@ -589,7 +594,8 @@ details .document { margin-top: var(--space-2); }
   .chatbot:hover { background: var(--color-bg-hover); }
   .pill:hover { background: var(--color-bg-hover); }
   .msg-actions button:hover { background: var(--color-bg-hover); color: var(--color-text); }
-  .chat-history li button:hover { background: var(--color-bg-hover); color: var(--color-text); }
+  .side-chats li button:hover { background: var(--color-sidebar-hover); color: var(--color-sidebar-text); }
+  .side-chats .chat-new:hover { background: var(--color-accent); filter: brightness(0.92); }
 }
 
 /* ---- Phone: sidebar becomes a dark top bar, grids stack, inputs stay 16px ---- */
@@ -611,15 +617,8 @@ details .document { margin-top: var(--space-2); }
   .page-head h1 { font-size: 2rem; }
   .work-grid, .grid, .setting-row { grid-template-columns: minmax(0, 1fr); }
   .setting-row { gap: var(--space-2); }
-  .chat-shell { grid-template-columns: minmax(0, 1fr); }
-  .chat-history {
-    position: static;
-    border-inline-end: 0;
-    border-block-end: 1px solid var(--color-border);
-    padding-inline-end: 0;
-    padding-block-end: var(--space-2);
-  }
-  .chat-history ul { flex-direction: row; overflow-x: auto; }
-  .chat-history li button { white-space: nowrap; }
+  .side-chats { overflow-x: auto; }
+  .side-chats ul { flex-direction: row; overflow-x: auto; }
+  .side-chats li button { white-space: nowrap; }
   .chat-new { width: auto; }
 }

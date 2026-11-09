@@ -3,6 +3,12 @@ import { generatePrompt, listProviders } from "./api";
 import ChatPanel from "./components/ChatPanel";
 import KeysPanel from "./components/KeysPanel";
 import PromptResult from "./components/PromptResult";
+import {
+  loadConversations,
+  newConversation,
+  saveConversations,
+  type Conversation,
+} from "./conversations";
 import { hasKey } from "./keys";
 import type { GenerateResponse, HistoryItem, ProviderInfo } from "./types";
 
@@ -60,12 +66,37 @@ export default function App() {
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [apiDown, setApiDown] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>(loadHistory);
+  // Conversations live here, not in ChatPanel, so the single sidebar
+  // can list them: New chat + history at the top, the menu at the
+  // bottom. Selecting one always opens the Chat tab.
+  const [initialConversations] = useState<Conversation[]>(() => {
+    const loaded = loadConversations();
+    return loaded.length > 0 ? loaded : [newConversation()];
+  });
+  const [conversations, setConversations] = useState(initialConversations);
+  const [activeConversationId, setActiveConversationId] = useState(initialConversations[0].id);
+
+  useEffect(() => {
+    saveConversations(conversations);
+  }, [conversations]);
 
   useEffect(() => {
     listProviders()
       .then((d) => setProviders(d.providers))
       .catch(() => setApiDown(true));
   }, []);
+
+  function startNewChat() {
+    const convo = newConversation();
+    setConversations((prev) => [convo, ...prev]);
+    setActiveConversationId(convo.id);
+    setTab("chat");
+  }
+
+  function selectConversation(id: string) {
+    setActiveConversationId(id);
+    setTab("chat");
+  }
 
   async function generate() {
     setLoading(true);
@@ -98,6 +129,24 @@ export default function App() {
     <div className="app">
       <aside className="sidebar">
         <p className="wordmark">PromptGPT<span className="wordmark-accent">.</span></p>
+        <div className="side-chats" aria-label="Conversations">
+          <button className="btn-primary chat-new" onClick={startNewChat}>
+            + New chat
+          </button>
+          <ul>
+            {conversations.map((c) => (
+              <li key={c.id}>
+                <button
+                  className={c.id === activeConversationId && tab === "chat" ? "active" : ""}
+                  onClick={() => selectConversation(c.id)}
+                  title={c.title}
+                >
+                  {c.title}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
         <nav className="nav" aria-label="Main">
           {TABS.map((t) => (
             <button key={t.id} className={tab === t.id ? "active" : ""} onClick={() => setTab(t.id)}>
@@ -187,7 +236,15 @@ export default function App() {
 
           {tab === "chat" && (
             <div className="reveal-2">
-              <ChatPanel providers={providers} initialPrompt={chatPrompt} onNeedKey={() => setTab("keys")} />
+              <ChatPanel
+                providers={providers}
+                initialPrompt={chatPrompt}
+                onNeedKey={() => setTab("keys")}
+                conversations={conversations}
+                activeId={activeConversationId}
+                onConversations={setConversations}
+                onActiveId={setActiveConversationId}
+              />
             </div>
           )}
 
