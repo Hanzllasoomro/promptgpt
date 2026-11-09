@@ -22,7 +22,12 @@ and copy-first links (Mistral, DeepSeek, Grok, Meta AI, Poe), each with
 ## POST /api/chat/run
 
 Header: `X-LLM-API-Key: <your key>` (or a server env fallback).
-Body: `{ provider, model?, prompt, system?, temperature?, max_tokens?, base_url? }`
+Body: `{ provider, model?, prompt, messages?, system?, temperature?, max_tokens?, base_url? }`
+`messages` is the conversation history (`[{role: "user"|"assistant", content}]`),
+ending with the latest user turn; it is re-sent to the provider on
+every call so follow-ups have context. Only the most recent 20
+messages (10 turns) are sent; older turns are dropped. Without
+`messages` the call is a single prompt, as before.
 Returns: `{ provider, model, reply, via: "httpx", latency_ms, usage? }`
 — `model` is the one that actually answered, which can differ from the
 requested model when a fallback was used (see below).

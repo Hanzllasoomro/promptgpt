@@ -109,6 +109,7 @@ async def run_chat(
             api_key=key,
             base_url=req.base_url,
             timeout_s=settings.request_timeout_s,
+            messages=[m.model_dump() for m in req.messages],
         )
         via = "httpx"
     except ProviderError as exc:
@@ -178,6 +179,7 @@ async def run_chat_stream(
                 base_url=req.base_url,
                 timeout_s=settings.request_timeout_s,
                 used=stream_state,
+                messages=[m.model_dump() for m in req.messages],
             ):
                 yield f"data: {json.dumps({'type': 'delta', 'text': chunk})}\n\n"
             used_model = stream_state.get("model") or used_model
@@ -224,6 +226,7 @@ async def run_chat_langchain(
             system=req.system,
             api_key=key,
             base_url=req.base_url,
+            messages=[m.model_dump() for m in req.messages],
         )
     except Exception as exc:
         raise HTTPException(502, f"LangChain provider call failed: {exc.__class__.__name__}") from exc

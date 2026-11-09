@@ -25,10 +25,20 @@ class GenerateResponse(BaseModel):
     task_type: str
 
 
+class ChatMessage(BaseModel):
+    """One turn of a conversation. The frontend sends the whole history
+    (ending with the latest user turn); the backend re-sends it to the
+    provider so follow-ups have context."""
+
+    role: str = Field(..., pattern="^(user|assistant)$")
+    content: str = Field(..., min_length=1, max_length=20000)
+
+
 class ChatRequest(BaseModel):
     provider: str = Field(..., description="openai | anthropic | google | huggingface | openai-compatible")
     model: str = ""
     prompt: str = Field(..., min_length=1, max_length=20000)
+    messages: list[ChatMessage] = Field(default_factory=list)
     system: str = ""
     temperature: float = Field(0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(1024, ge=1, le=32000)

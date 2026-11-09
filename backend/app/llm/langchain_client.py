@@ -24,7 +24,13 @@ def available() -> bool:
 
 
 async def run_with_langchain(
-    provider: str, model: str, prompt: str, system: str, api_key: str, base_url: str
+    provider: str,
+    model: str,
+    prompt: str,
+    system: str,
+    api_key: str,
+    base_url: str,
+    messages: list[dict] | None = None,
 ) -> str:
     if provider == "openai":
         from langchain_openai import ChatOpenAI
@@ -52,13 +58,25 @@ async def run_with_langchain(
     else:
         raise ValueError(f"LangChain adapter not implemented for provider: {provider}")
 
-    from langchain_core.prompts import ChatPromptTemplate
+    # Message objects, not a string template: user content may contain
+    # braces, which a template would mistake for variables. With history
+    # the turns are sent as-is (capped like the httpx adapters); without
+    # it the single prompt is the only human message.
+    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-    template = ChatPromptTemplate.from_messages(
-        [("system", "{system}"), ("human", "{prompt}")]
-    )
-    chain = template | llm
-    result = await chain.ainvoke(
-        {"system": system or "You are a helpful assistant.", "prompt": prompt}
-    )
+    turns = [
+        m for m in (messages or [])
+        if m.get("role") in ("user", "assistant") and m.get("content")
+    ]
+    if not turns or turns[-1]["role"] != "user" or turns[-1]["content"] != prompt:
+        turns.append({"role": "user", "content": prompt})
+    turns = turns[-20:]
+    chat_messages = [SystemMessage(system or "You are a helpful assistant.")]
+    for turn in turns:
+        chat_messages.append(
+            HumanMessage(turn["content"])
+            if turn["role"] == "user"
+            else AIMessage(turn["content"])
+        )
+    result = await llm.ainvoke(chat_messages)
     return result.content if isinstance(result.content, str) else str(result.content)

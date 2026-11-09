@@ -91,12 +91,13 @@ const components: Components = {
   },
 };
 
-export default function Markdown({ text }: { text: string }) {
+export default function Markdown({ text, streaming = false }: { text: string; streaming?: boolean }) {
   return (
     <div className="reply">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {text}
       </ReactMarkdown>
+      {streaming && <span className="md-cursor" aria-hidden="true" />}
     </div>
   );
 }

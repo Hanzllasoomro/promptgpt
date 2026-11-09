@@ -79,13 +79,52 @@ def resolve_key(provider: str, header_key: str | None) -> str | None:
     return None
 
 
-def _google_payload(prompt: str, system: str, temperature: float, max_tokens: int) -> dict:
+# Conversation history is capped so a long chat cannot silently blow
+# past the provider's context window or the request size limit: the
+# most recent 10 turns (20 messages) are sent, older turns dropped.
+MAX_HISTORY_MESSAGES = 20
+
+
+def _turns(prompt: str, messages: list[dict] | None) -> list[dict]:
+    """The turns to send: the supplied history, guaranteed to end with
+    ``prompt`` as a user turn, capped to the most recent turns. With
+    no history this is just the single prompt, so one-shot callers are
+    unaffected."""
+    turns = [
+        {"role": m["role"], "content": m["content"]}
+        for m in (messages or [])
+        if m.get("role") in ("user", "assistant") and m.get("content")
+    ]
+    if not turns or turns[-1]["role"] != "user" or turns[-1]["content"] != prompt:
+        turns.append({"role": "user", "content": prompt})
+    return turns[-MAX_HISTORY_MESSAGES:]
+
+
+def _google_payload(
+    prompt: str,
+    system: str,
+    temperature: float,
+    max_tokens: int,
+    turns: list[dict] | None = None,
+) -> dict:
     """generateContent body. ``systemInstruction`` is omitted entirely
     when no system instruction was given: sending it as ``null`` is
     not a valid Content and some Google API surfaces reject the request
-    for it, so the field must not be present at all."""
+    for it, so the field must not be present at all. With history, the
+    turns become the contents (assistant turns use Google's ``model``
+    role); without it, the single prompt is the only content."""
+    if turns:
+        contents = [
+            {
+                "role": "user" if t["role"] == "user" else "model",
+                "parts": [{"text": t["content"]}],
+            }
+            for t in turns
+        ]
+    else:
+        contents = [{"parts": [{"text": prompt}]}]
     payload: dict = {
-        "contents": [{"parts": [{"text": prompt}]}],
+        "contents": contents,
         "generationConfig": {
             "temperature": temperature,
             "maxOutputTokens": max_tokens,
@@ -137,11 +176,17 @@ def _error_from_body(status: int, body: bytes, provider: str) -> ProviderError:
     return ProviderError(provider, status, f"{provider} returned {status}: {str(msg)[:500]}")
 
 
-def _messages(prompt: str, system: str) -> list[dict]:
+def _messages(prompt: str, system: str, turns: list[dict] | None = None) -> list[dict]:
+    """OpenAI-style message list: an optional system message, then the
+    conversation turns (which already end with the latest user prompt),
+    or just the single prompt when there is no history."""
     msgs: list[dict] = []
     if system.strip():
         msgs.append({"role": "system", "content": system.strip()})
-    msgs.append({"role": "user", "content": prompt})
+    if turns:
+        msgs.extend({"role": t["role"], "content": t["content"]} for t in turns)
+    else:
+        msgs.append({"role": "user", "content": prompt})
     return msgs
 
 
@@ -155,28 +200,33 @@ async def run_chat(
     api_key: str,
     base_url: str,
     timeout_s: float,
+    messages: list[dict] | None = None,
 ) -> tuple[str, dict | None, str]:
     """Return (reply_text, usage_or_None, model_actually_used).
 
-    A 503 (transient overload) is retried on the same model, then the
-    next model in the provider's list is tried (Google only in practice:
-    the Flash models are one tier, so a fallback costs the user nothing
-    extra). A 404 also moves to the next model, since it means that model
-    is unavailable for this key/project. Any other error — a bad key
-    (400/401/403), a bad request — is raised immediately: retrying it
-    cannot help. Raises ProviderError / httpx errors.
+    ``messages`` is the conversation history (user/assistant turns);
+    it is sent to the provider so follow-ups have context, capped to
+    the most recent turns by :func:`_turns`. A 503 (transient overload)
+    is retried on the same model, then the next model in the provider's
+    list is tried (Google only in practice: the Flash models are one
+    tier, so a fallback costs the user nothing extra). A 404 also moves
+    to the next model, since it means that model is unavailable for
+    this key/project. Any other error — a bad key (400/401/403), a bad
+    request — is raised immediately: retrying it cannot help. Raises
+    ProviderError / httpx errors.
     """
     info = PROVIDERS.get(provider)
     if info is None:
         raise ValueError(f"Unknown provider: {provider}")
     model = model or info.default_model
+    turns = _turns(prompt, messages)
     timeout = httpx.Timeout(timeout_s)
     async with httpx.AsyncClient(timeout=timeout) as client:
         if provider in ("openai", "huggingface", "openai-compatible"):
             url = _openai_url(provider, base_url)
             payload = {
                 "model": model,
-                "messages": _messages(prompt, system),
+                "messages": _messages(prompt, system, turns),
                 "temperature": temperature,
                 "max_tokens": max_tokens,
             }
@@ -199,7 +249,7 @@ async def run_chat(
                     "max_tokens": max_tokens,
                     "temperature": temperature,
                     "system": system or "You are a helpful assistant.",
-                    "messages": [{"role": "user", "content": prompt}],
+                    "messages": [{"role": t["role"], "content": t["content"]} for t in turns],
                 },
                 headers={
                     "x-api-key": api_key,
@@ -218,7 +268,7 @@ async def run_chat(
                     resp = await client.post(
                         f"https://generativelanguage.googleapis.com/v1beta/models/{candidate}:generateContent",
                         params={"key": api_key},
-                        json=_google_payload(prompt, system, temperature, max_tokens),
+                        json=_google_payload(prompt, system, temperature, max_tokens, turns),
                     )
                     if resp.status_code < 400:
                         data = resp.json()
@@ -296,6 +346,7 @@ async def run_chat_stream(
     base_url: str,
     timeout_s: float,
     used: dict | None = None,
+    messages: list[dict] | None = None,
 ):
     """Yield reply text as it arrives. When the stream finishes, the
     model actually used is recorded in ``used["model"]`` when ``used``
@@ -314,13 +365,14 @@ async def run_chat_stream(
     if info is None:
         raise ValueError(f"Unknown provider: {provider}")
     model = model or info.default_model
+    turns = _turns(prompt, messages)
     timeout = httpx.Timeout(timeout_s)
     async with httpx.AsyncClient(timeout=timeout) as client:
         if provider in ("openai", "huggingface", "openai-compatible"):
             url = _openai_url(provider, base_url)
             payload = {
                 "model": model,
-                "messages": _messages(prompt, system),
+                "messages": _messages(prompt, system, turns),
                 "temperature": temperature,
                 "max_tokens": max_tokens,
                 "stream": True,
@@ -372,7 +424,7 @@ async def run_chat_stream(
                         "max_tokens": max_tokens,
                         "temperature": temperature,
                         "system": system or "You are a helpful assistant.",
-                        "messages": [{"role": "user", "content": prompt}],
+                        "messages": [{"role": t["role"], "content": t["content"]} for t in turns],
                         "stream": True,
                     },
                     headers={
@@ -419,7 +471,7 @@ async def run_chat_stream(
                         "POST",
                         f"https://generativelanguage.googleapis.com/v1beta/models/{candidate}:streamGenerateContent",
                         params={"key": api_key, "alt": "sse"},
-                        json=_google_payload(prompt, system, temperature, max_tokens),
+                        json=_google_payload(prompt, system, temperature, max_tokens, turns),
                     ) as resp:
                         if resp.status_code >= 400:
                             err = _error_from_body(resp.status_code, await resp.aread(), provider)
