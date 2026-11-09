@@ -60,7 +60,9 @@ export async function runChatStream(
   apiKey: string,
   callbacks: {
     onDelta: (text: string) => void;
-    onDone: (latencyMs: number) => void;
+    // model is the one that actually answered; it can differ from the
+    // requested one when a fallback model was used.
+    onDone: (latencyMs: number, model?: string) => void;
     signal?: AbortSignal;
   },
 ): Promise<void> {
@@ -101,7 +103,7 @@ export async function runChatStream(
           if (event.type === "delta" && event.text) callbacks.onDelta(event.text);
           if (event.type === "error") throw new Error(event.detail || "Streaming failed");
           if (event.type === "done") {
-            callbacks.onDone(event.latency_ms || 0);
+            callbacks.onDone(event.latency_ms || 0, event.model);
             return;
           }
         }

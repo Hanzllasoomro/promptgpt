@@ -11,6 +11,8 @@ never stored, logged or returned.
 
 from __future__ import annotations
 
+import asyncio
+
 import httpx
 
 from ..config import get_settings
@@ -35,7 +37,7 @@ PROVIDERS: dict[str, ProviderInfo] = {
         id="google",
         name="Google (Gemini)",
         default_model="gemini-3.8-flash",
-        models=["gemini-3.8-flash", "gemini-2.0-flash", "gemini-1.5-pro"],
+        models=["gemini-3.8-flash", "gemini-2.0-flash", "gemini-3.5-flash", "gemini-1.5-pro"],
         key_help="Create one at aistudio.google.com → Get API key.",
     ),
     "huggingface": ProviderInfo(
@@ -94,6 +96,47 @@ def _google_payload(prompt: str, system: str, temperature: float, max_tokens: in
     return payload
 
 
+class ProviderError(ValueError):
+    """A provider call failed. Carries the provider's HTTP status so the
+    API can report a 503 as a 503 instead of flattening every provider
+    failure to a 400."""
+
+    def __init__(self, provider: str, status: int, message: str):
+        super().__init__(message)
+        self.provider = provider
+        self.status = status
+        self.message = message
+
+
+# Retry policy for transient overloads (notably Gemini 503s, which are
+# Google-side capacity errors, not quota or key problems):
+# up to 3 attempts per model, waiting 2s then 4s between attempts.
+_RETRY_DELAYS_S = (2.0, 4.0)
+# 503: same model is worth retrying. 404: the model is unavailable for
+# this key/project (retired or never enabled), so try the next model.
+_RETRYABLE_STATUSES = {503}
+_FALLBACK_STATUSES = {503, 404}
+
+
+def _candidate_models(info: ProviderInfo, requested: str) -> list[str]:
+    """Requested model first, then the provider's other models in list
+    order. Fallback only ever runs within one provider and one tier
+    family (for Google, the Flash models), never across providers."""
+    return [requested] + [m for m in info.models if m != requested]
+
+
+def _error_from_body(status: int, body: bytes, provider: str) -> ProviderError:
+    """Provider error from a response body, without headers or keys."""
+    try:
+        import json as _json
+
+        detail = _json.loads(body.decode("utf-8", "replace"))
+        msg = detail.get("error", {}).get("message") or detail.get("error") or body.decode("utf-8", "replace")
+    except Exception:
+        msg = body.decode("utf-8", "replace")
+    return ProviderError(provider, status, f"{provider} returned {status}: {str(msg)[:500]}")
+
+
 def _messages(prompt: str, system: str) -> list[dict]:
     msgs: list[dict] = []
     if system.strip():
@@ -112,8 +155,17 @@ async def run_chat(
     api_key: str,
     base_url: str,
     timeout_s: float,
-) -> tuple[str, dict | None]:
-    """Return (reply_text, usage_or_None). Raises ValueError / httpx errors."""
+) -> tuple[str, dict | None, str]:
+    """Return (reply_text, usage_or_None, model_actually_used).
+
+    A 503 (transient overload) is retried on the same model, then the
+    next model in the provider's list is tried (Google only in practice:
+    the Flash models are one tier, so a fallback costs the user nothing
+    extra). A 404 also moves to the next model, since it means that model
+    is unavailable for this key/project. Any other error — a bad key
+    (400/401/403), a bad request — is raised immediately: retrying it
+    cannot help. Raises ProviderError / httpx errors.
+    """
     info = PROVIDERS.get(provider)
     if info is None:
         raise ValueError(f"Unknown provider: {provider}")
@@ -132,15 +184,16 @@ async def run_chat(
             if provider == "huggingface":
                 # HF Inference router accepts OpenAI-compatible chat completions.
                 headers["Content-Type"] = "application/json"
-            resp = await client.post(url, json=payload, headers=headers)
-            _raise(resp, provider)
+            resp = await _post_with_retry(client, url, provider, json=payload, headers=headers)
             data = resp.json()
             choice = data["choices"][0]["message"]["content"]
-            return choice, data.get("usage")
+            return choice, data.get("usage"), model
 
         if provider == "anthropic":
-            resp = await client.post(
+            resp = await _post_with_retry(
+                client,
                 "https://api.anthropic.com/v1/messages",
+                provider,
                 json={
                     "model": model,
                     "max_tokens": max_tokens,
@@ -154,23 +207,56 @@ async def run_chat(
                     "content-type": "application/json",
                 },
             )
-            _raise(resp, provider)
             data = resp.json()
             text = "".join(b.get("text", "") for b in data.get("content", []))
-            return text, data.get("usage")
+            return text, data.get("usage"), model
 
         if provider == "google":
-            resp = await client.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-                params={"key": api_key},
-                json=_google_payload(prompt, system, temperature, max_tokens),
+            last_error: ProviderError | None = None
+            for candidate in _candidate_models(info, model):
+                for attempt in range(len(_RETRY_DELAYS_S) + 1):
+                    resp = await client.post(
+                        f"https://generativelanguage.googleapis.com/v1beta/models/{candidate}:generateContent",
+                        params={"key": api_key},
+                        json=_google_payload(prompt, system, temperature, max_tokens),
+                    )
+                    if resp.status_code < 400:
+                        data = resp.json()
+                        parts = data["candidates"][0]["content"]["parts"]
+                        return "".join(p.get("text", "") for p in parts), data.get("usageMetadata"), candidate
+                    err = _provider_error(resp, provider)
+                    if err.status in _RETRYABLE_STATUSES and attempt < len(_RETRY_DELAYS_S):
+                        last_error = err
+                        await asyncio.sleep(_RETRY_DELAYS_S[attempt])
+                        continue
+                    if err.status in _FALLBACK_STATUSES:
+                        last_error = err
+                        break  # try the next model in the list
+                    raise err
+            assert last_error is not None  # candidates is never empty
+            tried = ", ".join(_candidate_models(info, model))
+            raise ProviderError(
+                provider,
+                last_error.status,
+                f"{last_error.message} (tried models: {tried})",
             )
-            _raise(resp, provider)
-            data = resp.json()
-            parts = data["candidates"][0]["content"]["parts"]
-            return "".join(p.get("text", "") for p in parts), data.get("usageMetadata")
 
     raise ValueError(f"Unknown provider: {provider}")
+
+
+async def _post_with_retry(client: httpx.AsyncClient, url: str, provider: str, **kwargs) -> httpx.Response:
+    """POST once, retrying only a 503 with backoff. Other failures are
+    raised via :func:`_raise` (a bad key or bad request cannot be
+    retried into working)."""
+    resp: httpx.Response | None = None
+    for attempt in range(len(_RETRY_DELAYS_S) + 1):
+        resp = await client.post(url, **kwargs)
+        if resp.status_code != 503 or attempt == len(_RETRY_DELAYS_S):
+            break
+        await asyncio.sleep(_RETRY_DELAYS_S[attempt])
+    assert resp is not None
+    _raise(resp, provider)
+    return resp
 
 
 def _google_chunk_text(data: dict) -> str:
@@ -199,18 +285,6 @@ def _anthropic_chunk_text(event: str, data: dict) -> str:
     return delta.get("text", "") if isinstance(delta, dict) else ""
 
 
-def _stream_error_message(status: int, body: bytes, provider: str) -> str:
-    """Provider error text from a streamed error body, without headers."""
-    try:
-        import json as _json
-
-        detail = _json.loads(body.decode("utf-8", "replace"))
-        msg = detail.get("error", {}).get("message") or detail.get("error") or body.decode("utf-8", "replace")
-    except Exception:
-        msg = body.decode("utf-8", "replace")
-    return f"{provider} returned {status}: {str(msg)[:500]}"
-
-
 async def run_chat_stream(
     provider: str,
     model: str,
@@ -221,14 +295,20 @@ async def run_chat_stream(
     api_key: str,
     base_url: str,
     timeout_s: float,
+    used: dict | None = None,
 ):
-    """Yield reply text as it arrives. Raises ValueError / httpx errors.
+    """Yield reply text as it arrives. When the stream finishes, the
+    model actually used is recorded in ``used["model"]`` when ``used``
+    is given (relevant when a fallback model answered) — async
+    generators cannot return a value, so a state dict carries it.
 
     Unlike :func:`run_chat`, this never waits for the whole reply: each
     provider chunk is yielded as soon as it is parsed. The httpx read
     timeout applies per chunk, not to the whole generation, so a long
     reply does not hit the timeout just for being long — only a stall
-    between chunks does.
+    between chunks does. A 503 before the first chunk is retried with
+    backoff, and for Google the next model in the list is then tried,
+    exactly as in :func:`run_chat`. Raises ProviderError / httpx errors.
     """
     info = PROVIDERS.get(provider)
     if info is None:
@@ -248,87 +328,136 @@ async def run_chat_stream(
             headers = {"Authorization": f"Bearer {api_key}"}
             if provider == "huggingface":
                 headers["Content-Type"] = "application/json"
-            async with client.stream("POST", url, json=payload, headers=headers) as resp:
-                if resp.status_code >= 400:
-                    raise ValueError(_stream_error_message(resp.status_code, await resp.aread(), provider))
-                async for line in resp.aiter_lines():
-                    line = line.strip()
-                    if not line.startswith("data:"):
-                        continue
-                    data_text = line[5:].strip()
-                    if data_text == "[DONE]":
-                        break
-                    try:
-                        import json as _json
+            for attempt in range(len(_RETRY_DELAYS_S) + 1):
+                retry = False
+                async with client.stream("POST", url, json=payload, headers=headers) as resp:
+                    if resp.status_code >= 400:
+                        err = _error_from_body(resp.status_code, await resp.aread(), provider)
+                        if err.status in _RETRYABLE_STATUSES and attempt < len(_RETRY_DELAYS_S):
+                            await asyncio.sleep(_RETRY_DELAYS_S[attempt])
+                            retry = True
+                        else:
+                            raise err
+                    else:
+                        async for line in resp.aiter_lines():
+                            line = line.strip()
+                            if not line.startswith("data:"):
+                                continue
+                            data_text = line[5:].strip()
+                            if data_text == "[DONE]":
+                                break
+                            try:
+                                import json as _json
 
-                        data = _json.loads(data_text)
-                    except Exception:
-                        continue
-                    text = _openai_chunk_text(data)
-                    if text:
-                        yield text
-            return
+                                data = _json.loads(data_text)
+                            except Exception:
+                                continue
+                            text = _openai_chunk_text(data)
+                            if text:
+                                yield text
+                        if used is not None:
+                            used["model"] = model
+                        return
+                if not retry:
+                    return
 
         if provider == "anthropic":
-            async with client.stream(
-                "POST",
-                "https://api.anthropic.com/v1/messages",
-                json={
-                    "model": model,
-                    "max_tokens": max_tokens,
-                    "temperature": temperature,
-                    "system": system or "You are a helpful assistant.",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "stream": True,
-                },
-                headers={
-                    "x-api-key": api_key,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
-                },
-            ) as resp:
-                if resp.status_code >= 400:
-                    raise ValueError(_stream_error_message(resp.status_code, await resp.aread(), provider))
-                event = ""
-                async for line in resp.aiter_lines():
-                    line = line.strip()
-                    if line.startswith("event:"):
-                        event = line[6:].strip()
-                    elif line.startswith("data:"):
-                        try:
-                            import json as _json
+            for attempt in range(len(_RETRY_DELAYS_S) + 1):
+                retry = False
+                async with client.stream(
+                    "POST",
+                    "https://api.anthropic.com/v1/messages",
+                    json={
+                        "model": model,
+                        "max_tokens": max_tokens,
+                        "temperature": temperature,
+                        "system": system or "You are a helpful assistant.",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "stream": True,
+                    },
+                    headers={
+                        "x-api-key": api_key,
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json",
+                    },
+                ) as resp:
+                    if resp.status_code >= 400:
+                        err = _error_from_body(resp.status_code, await resp.aread(), provider)
+                        if err.status in _RETRYABLE_STATUSES and attempt < len(_RETRY_DELAYS_S):
+                            await asyncio.sleep(_RETRY_DELAYS_S[attempt])
+                            retry = True
+                        else:
+                            raise err
+                    else:
+                        event = ""
+                        async for line in resp.aiter_lines():
+                            line = line.strip()
+                            if line.startswith("event:"):
+                                event = line[6:].strip()
+                            elif line.startswith("data:"):
+                                try:
+                                    import json as _json
 
-                            data = _json.loads(line[5:].strip())
-                        except Exception:
-                            continue
-                        text = _anthropic_chunk_text(event, data)
-                        if text:
-                            yield text
-            return
+                                    data = _json.loads(line[5:].strip())
+                                except Exception:
+                                    continue
+                                text = _anthropic_chunk_text(event, data)
+                                if text:
+                                    yield text
+                        if used is not None:
+                            used["model"] = model
+                        return
+                if not retry:
+                    return
 
         if provider == "google":
-            async with client.stream(
-                "POST",
-                f"https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent",
-                params={"key": api_key, "alt": "sse"},
-                json=_google_payload(prompt, system, temperature, max_tokens),
-            ) as resp:
-                if resp.status_code >= 400:
-                    raise ValueError(_stream_error_message(resp.status_code, await resp.aread(), provider))
-                async for line in resp.aiter_lines():
-                    line = line.strip()
-                    if not line.startswith("data:"):
-                        continue
-                    try:
-                        import json as _json
+            last_error: ProviderError | None = None
+            for candidate in _candidate_models(info, model):
+                for attempt in range(len(_RETRY_DELAYS_S) + 1):
+                    retry = False
+                    async with client.stream(
+                        "POST",
+                        f"https://generativelanguage.googleapis.com/v1beta/models/{candidate}:streamGenerateContent",
+                        params={"key": api_key, "alt": "sse"},
+                        json=_google_payload(prompt, system, temperature, max_tokens),
+                    ) as resp:
+                        if resp.status_code >= 400:
+                            err = _error_from_body(resp.status_code, await resp.aread(), provider)
+                            if err.status in _RETRYABLE_STATUSES and attempt < len(_RETRY_DELAYS_S):
+                                last_error = err
+                                await asyncio.sleep(_RETRY_DELAYS_S[attempt])
+                                retry = True
+                            elif err.status in _FALLBACK_STATUSES:
+                                last_error = err
+                            else:
+                                raise err
+                        else:
+                            async for line in resp.aiter_lines():
+                                line = line.strip()
+                                if not line.startswith("data:"):
+                                    continue
+                                try:
+                                    import json as _json
 
-                        data = _json.loads(line[5:].strip())
-                    except Exception:
+                                    data = _json.loads(line[5:].strip())
+                                except Exception:
+                                    continue
+                                text = _google_chunk_text(data)
+                                if text:
+                                    yield text
+                            if used is not None:
+                                used["model"] = candidate
+                            return
+                    if retry:
                         continue
-                    text = _google_chunk_text(data)
-                    if text:
-                        yield text
-            return
+                    break  # fall through to the next model in the list
+            assert last_error is not None  # candidates is never empty
+            tried = ", ".join(_candidate_models(info, model))
+            raise ProviderError(
+                provider,
+                last_error.status,
+                f"{last_error.message} (tried models: {tried})",
+            )
 
     raise ValueError(f"Unknown provider: {provider}")
 
@@ -343,13 +472,13 @@ def _openai_url(provider: str, base_url: str) -> str:
     return "https://api.openai.com/v1/chat/completions"
 
 
+def _provider_error(resp: httpx.Response, provider: str) -> ProviderError:
+    """ProviderError for a failed non-streaming response."""
+    return _error_from_body(resp.status_code, resp.content, provider)
+
+
 def _raise(resp: httpx.Response, provider: str) -> None:
     if resp.status_code < 400:
         return
     # Surface the provider's message, but never echo request headers/keys.
-    try:
-        detail = resp.json()
-        msg = detail.get("error", {}).get("message") or detail.get("error") or resp.text
-    except Exception:
-        msg = resp.text
-    raise ValueError(f"{provider} returned {resp.status_code}: {str(msg)[:500]}")
+    raise _provider_error(resp, provider)

@@ -20,6 +20,7 @@ from fastapi.responses import StreamingResponse
 from .chatbots import chatbot_links
 from .config import get_settings
 from .llm import langchain_client, providers
+from .llm.providers import ProviderError
 from .models import (
     ChatRequest,
     ChatResponse,
@@ -96,7 +97,9 @@ async def run_chat(
     try:
         # httpx adapters are the default path (dependency-light and
         # deterministic). LangChain is opt-in via /api/chat/run-langchain.
-        reply, usage = await providers.run_chat(
+        # run_chat returns the model actually used: a fallback model may
+        # have answered when the requested one was overloaded.
+        reply, usage, used_model = await providers.run_chat(
             provider=req.provider,
             model=model,
             prompt=req.prompt,
@@ -108,13 +111,17 @@ async def run_chat(
             timeout_s=settings.request_timeout_s,
         )
         via = "httpx"
+    except ProviderError as exc:
+        # Report the provider's own status: a 503 overload is a 503,
+        # not a 400 as if the request itself were wrong.
+        raise HTTPException(exc.status, str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     except Exception as exc:  # provider/network failure, not a key leak
         raise HTTPException(502, f"Provider call failed: {exc.__class__.__name__}") from exc
     return ChatResponse(
         provider=req.provider,
-        model=model,
+        model=used_model,
         reply=reply,
         via=via,
         latency_ms=int((time.monotonic() - started) * 1000),
@@ -130,13 +137,15 @@ async def run_chat_stream(
     """Stream a chat reply as server-sent events.
 
     Events are ``data: {"type": "delta", "text": "..."}`` per chunk,
-    then ``data: {"type": "done", "latency_ms": N}``. A provider error
-    mid-stream is ``data: {"type": "error", "detail": "..."}`` — the
-    HTTP status stays 200 because headers are already sent, so clients
-    must handle the error event. Key validation happens before the
-    stream starts, so a missing key or unknown provider still returns
-    a plain 400 like /api/chat/run. The LangChain path has no stream
-    equivalent and stays on /api/chat/run-langchain.
+    then ``data: {"type": "done", "latency_ms": N, "model": "..."}``
+    — the model is the one that actually answered, which can differ
+    from the requested one when a fallback model was used. A provider
+    error mid-stream is ``data: {"type": "error", "detail": "..."}`` —
+    the HTTP status stays 200 because headers are already sent, so
+    clients must handle the error event. Key validation happens before
+    the stream starts, so a missing key or unknown provider still
+    returns a plain 400 like /api/chat/run. The LangChain path has no
+    stream equivalent and stays on /api/chat/run-langchain.
     """
     info = providers.PROVIDERS.get(req.provider)
     if info is None:
@@ -152,6 +161,11 @@ async def run_chat_stream(
     started = time.monotonic()
 
     async def event_source():
+        # The stream records the model actually used in `stream_state`
+        # (async generators cannot return a value); if nothing is
+        # recorded, the requested model stands.
+        used_model = req.model or info.default_model
+        stream_state: dict = {}
         try:
             async for chunk in providers.run_chat_stream(
                 provider=req.provider,
@@ -163,9 +177,11 @@ async def run_chat_stream(
                 api_key=key,
                 base_url=req.base_url,
                 timeout_s=settings.request_timeout_s,
+                used=stream_state,
             ):
                 yield f"data: {json.dumps({'type': 'delta', 'text': chunk})}\n\n"
-            yield f"data: {json.dumps({'type': 'done', 'latency_ms': int((time.monotonic() - started) * 1000)})}\n\n"
+            used_model = stream_state.get("model") or used_model
+            yield f"data: {json.dumps({'type': 'done', 'latency_ms': int((time.monotonic() - started) * 1000), 'model': used_model})}\n\n"
         except Exception as exc:  # provider/network failure, not a key leak
             detail = str(exc) if isinstance(exc, ValueError) else f"Provider call failed: {exc.__class__.__name__}"
             yield f"data: {json.dumps({'type': 'error', 'detail': detail})}\n\n"

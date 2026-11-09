@@ -87,7 +87,12 @@ export default function ChatPanel({ providers, initialPrompt, onNeedKey }: Props
           key || "local",
           {
             onDelta: (text) => setReply((prev) => prev + text),
-            onDone: (latencyMs) => setMeta(`${provider}, ${effectiveModel}, via httpx-stream, ${latencyMs} ms`),
+            onDone: (latencyMs, model) => {
+              const used = model || effectiveModel;
+              const fallbackNote =
+                model && model !== effectiveModel ? ` — fell back from ${effectiveModel}` : "";
+              setMeta(`${provider}, ${used}, via httpx-stream, ${latencyMs} ms${fallbackNote}`);
+            },
             signal: controller.signal,
           },
         );
