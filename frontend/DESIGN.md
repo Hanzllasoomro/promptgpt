@@ -66,9 +66,13 @@ Sidebar: `#171717` ground, `#faf9f5` text, `#a8a8a3` secondary,
 
 ## Layout
 
-App shell capped at 1440px and centred: a 272px dark sidebar
-(wordmark with a terracotta full stop, navigation, API and key
-status) beside the main column, capped at 1152px. Groups are
+App shell full-bleed (the sidebar touches the left edge of the
+window): a 272px dark sidebar (wordmark with a terracotta full stop,
+navigation, API and key status) beside the main column, capped at
+1152px. Sizing is border-box throughout (`* { box-sizing:
+border-box }` in `styles.css`), so the tokens are the rendered
+sizes — without it the sidebar rendered 305px wide and taller than
+the viewport, clipping the API/key status foot below the fold. Groups are
 separated by 32–48px, items inside a group by 8–16px. Generate is
 a two-column work grid (brief left, engineered prompt right).
 Keys is a settings grid (label column beside a field panel).

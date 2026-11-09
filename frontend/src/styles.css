@@ -1,6 +1,13 @@
 /* Hallmark stamp: PromptGPT frontend v4, theme Claude plus ChatGPT plus Muse high-tech, genre modern-minimal, fonts Outfit plus Inter plus JetBrains Mono, critique: no FAILs claimed without a browser run, see DESIGN.md */
 /* Critique line: tokens-only colour, named transitions, reduced-motion fallback, focus-visible instant, no invented metrics. */
 
+/* Border-box everywhere: without it, width/height set the content box
+ * and padding adds on top, so the sidebar rendered 305px wide (token
+ * 272px) and 948px tall in a 900px viewport, clipping the API/key
+ * status foot below the fold — and 422px wide on a 390px phone. With
+ * this rule the tokens are the rendered sizes. */
+*, *::before, *::after { box-sizing: border-box; }
+
 /* ---- Tokens only: no literal colour, shadow or font-family is used past this block. ---- */
 :root {
   --color-bg: #faf9f5;
