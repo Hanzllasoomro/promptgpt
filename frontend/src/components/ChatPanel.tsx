@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { runChat, runChatStream } from "../api";
 import { getKey, getLastProvider, hasKey, setLastProvider } from "../keys";
+import Markdown from "./Markdown";
 import type { ProviderInfo } from "../types";
 
 interface Props {
@@ -185,7 +186,7 @@ export default function ChatPanel({ providers, initialPrompt, onNeedKey }: Props
       {reply && (
         <div>
           <p className="small mono tabular">{meta}</p>
-          <pre className="document">{reply}</pre>
+          <Markdown text={reply} />
         </div>
       )}
     </section>
