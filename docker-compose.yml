@@ -1,3 +1,9 @@
+# PromptGPT on one host: frontend (nginx) on :5173 proxies /api to the
+# backend on :8000, so the browser talks to one origin and no CORS or
+# build-time API URL is needed. Run with:
+#   docker compose up --build
+# Open http://localhost:5173. Keys stay in the browser (BYO key); the
+# backend reads optional server fallbacks from backend/.env if present.
 services:
   backend:
     build: ./backend
@@ -5,15 +11,18 @@ services:
       - "8000:8000"
     environment:
       CORS_ORIGINS: http://localhost:5173
-    # Optional server-side fallbacks; normally leave empty (BYO key).
-    # OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    env_file:
+      - path: ./backend/.env
+        required: false
+    restart: unless-stopped
 
   frontend:
-    build:
-      context: ./frontend
-      args:
-        VITE_API_URL: http://localhost:8000
+    build: ./frontend
     ports:
       - "5173:80"
+    environment:
+      BACKEND_URL: http://backend:8000
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    restart: unless-stopped

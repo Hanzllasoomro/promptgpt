@@ -68,7 +68,7 @@ export async function runChatStream(
 ): Promise<void> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (apiKey) headers["X-LLM-API-Key"] = apiKey;
-  const res = await fetch("/api/chat/run-stream", {
+  const res = await fetch(`${BASE}/api/chat/run-stream`, {
     method: "POST",
     headers,
     body: JSON.stringify(body),

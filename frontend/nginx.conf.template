@@ -1,0 +1,38 @@
+# Rendered by the nginx image's entrypoint (envsubst) from this template:
+# ${BACKEND_URL} is substituted from the container environment; every other
+# $ in this file is an nginx variable and must stay escaped as $$, or
+# envsubst would blank it. BACKEND_URL defaults to http://backend:8000
+# (the compose service name). Same-origin proxying means the browser
+# never calls the backend directly, so no CORS setup is needed and the
+# frontend needs no build-time API URL.
+server {
+    listen 80;
+    server_name _;
+
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript image/svg+xml;
+    gzip_min_length 1024;
+
+    # The app itself.
+    location / {
+        root /usr/share/nginx/html;
+        try_files $$uri $$uri/ /index.html;
+    }
+
+    # Every /api call goes to the backend. Buffering is off and the read
+    # timeout is long because /api/chat/run-stream is SSE: nginx must
+    # forward each event as it arrives instead of holding the response.
+    location /api/ {
+        proxy_pass ${BACKEND_URL};
+        proxy_http_version 1.1;
+        proxy_set_header Host $$host;
+        proxy_set_header X-Real-IP $$remote_addr;
+        proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $$scheme;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+}
