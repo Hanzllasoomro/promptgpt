@@ -38,7 +38,11 @@ PROVIDERS: dict[str, ProviderInfo] = {
         id="google",
         name="Google (Gemini)",
         default_model="gemini-3.8-flash",
-        models=["gemini-3.8-flash", "gemini-2.0-flash", "gemini-3.5-flash", "gemini-1.5-pro"],
+        # Verified live 2026-11-10 against the Gemini models endpoint:
+        # gemini-2.0-flash and gemini-1.5-pro are retired (404), and
+        # gemini-2.5-flash answers 404 "no longer available to new
+        # users". Only the two Flash models below are offered.
+        models=["gemini-3.8-flash", "gemini-3.5-flash"],
         key_help="Create one at aistudio.google.com → Get API key.",
     ),
     "huggingface": ProviderInfo(
@@ -154,8 +158,12 @@ class ProviderError(ValueError):
 _RETRY_DELAYS_S = (2.0, 4.0)
 # 503: same model is worth retrying. 404: the model is unavailable for
 # this key/project (retired or never enabled), so try the next model.
+# 429: this model's quota/rate limit is exhausted — retrying the same
+# model cannot help (a free-tier daily quota does not come back in
+# seconds), so try the next model, which has its own quota. 429 is
+# deliberately NOT retried on the same model.
 _RETRYABLE_STATUSES = {503}
-_FALLBACK_STATUSES = {503, 404}
+_FALLBACK_STATUSES = {503, 404, 429}
 
 
 def _candidate_models(info: ProviderInfo, requested: str) -> list[str]:

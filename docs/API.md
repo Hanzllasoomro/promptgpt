@@ -57,10 +57,14 @@ the provider; a provider's own status is passed through (e.g. a Google
 Retry and fallback: a 503 (transient overload, e.g. Gemini "high
 demand") is retried on the same model with backoff (2s, 4s), then the
 next model in the provider's list is tried — for Google the Flash
-models, in list order. A 404 also moves to the next model (retired or
-never-enabled for this key/project). A 400/401/403 is raised at once:
-retrying a bad key cannot help. If every model fails, the error names
-the models that were tried.
+models, in list order (gemini-3.8-flash, then gemini-3.5-flash;
+gemini-2.0-flash and gemini-1.5-pro are retired and no longer listed).
+A 404 also moves to the next model (retired or never-enabled for this
+key/project), as does a 429 (that model's quota/rate limit is
+exhausted — the next model has its own quota, so it is tried instead
+of retrying the same one). A 400/401/403 is raised at once: retrying a
+bad key cannot help. If every model fails, the error names the models
+that were tried.
 
 ## POST /api/chat/run-stream
 

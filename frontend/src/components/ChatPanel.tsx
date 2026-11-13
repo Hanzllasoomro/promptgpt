@@ -8,7 +8,7 @@ import {
   type ChatMessage,
   type Conversation,
 } from "../conversations";
-import { getKey, getLastProvider, hasKey, setLastProvider } from "../keys";
+import { getKey, getLastLength, getLastProvider, getLastTemperature, hasKey, setLastLength, setLastProvider, setLastTemperature } from "../keys";
 import type { ProviderInfo } from "../types";
 import Markdown from "./Markdown";
 
@@ -68,6 +68,11 @@ export default function ChatPanel({
   const [provider, setProvider] = useState(() => pickInitialProvider(providers));
   const [model, setModel] = useState("");
   const [baseUrl, setBaseUrl] = useState("http://localhost:11434/v1");
+  /** Reply length / creativity: previously the Chat tab never sent
+   * these, so every reply ran at the backend defaults (1024 tokens,
+   * 0.7) and long answers were cut off mid-sentence. */
+  const [maxTokens, setMaxTokens] = useState(() => getLastLength());
+  const [temperature, setTemperature] = useState(() => getLastTemperature());
   const [input, setInput] = useState(initialPrompt);
   const [useLangChain, setUseLangChain] = useState(false);
   const [streaming, setStreaming] = useState(false);
@@ -166,7 +171,7 @@ export default function ChatPanel({
     if (!active) return;
     const convoId = active.id;
     const payload = history.map(({ role, content }) => ({ role, content }));
-    const body = { provider, model: effectiveModel, prompt: promptText, base_url: baseUrl, messages: payload };
+    const body = { provider, model: effectiveModel, prompt: promptText, base_url: baseUrl, messages: payload, temperature, max_tokens: maxTokens };
 
     if (useLangChain) {
       setStreaming(true);
@@ -331,6 +336,31 @@ export default function ChatPanel({
                   <option key={m} value={m} />
                 ))}
               </datalist>
+            </label>
+            <label>
+              Reply length
+              <select
+                value={maxTokens}
+                onChange={(e) => { const n = Number(e.target.value); setMaxTokens(n); setLastLength(n); }}
+                disabled={streaming}
+              >
+                <option value={512}>Concise — up to 512 tokens</option>
+                <option value={1024}>Standard — up to 1,024 tokens</option>
+                <option value={2048}>Detailed — up to 2,048 tokens</option>
+                <option value={4096}>Long — up to 4,096 tokens</option>
+              </select>
+            </label>
+            <label>
+              Creativity
+              <select
+                value={temperature}
+                onChange={(e) => { const n = Number(e.target.value); setTemperature(n); setLastTemperature(n); }}
+                disabled={streaming}
+              >
+                <option value={0.2}>Precise — 0.2</option>
+                <option value={0.7}>Balanced — 0.7</option>
+                <option value={1.0}>Creative — 1.0</option>
+              </select>
             </label>
           </div>
           {info?.supports_base_url && (

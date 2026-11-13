@@ -2,8 +2,10 @@
 
 A 503 is a transient overload, not a bad key: the same model is tried
 again with backoff, then the next model in the provider's list answers
-instead. A 400/401/403 is raised immediately — retrying a bad key
-cannot help. No live provider is called here: httpx is stubbed.
+instead. A 429 (quota/rate limit exhausted on that model) also falls
+back to the next model, which has its own quota — it is not retried
+on the same model. A 400/401/403 is raised immediately — retrying a
+bad key cannot help. No live provider is called here: httpx is stubbed.
 """
 
 import asyncio
@@ -21,6 +23,7 @@ KEY = "AIzaSyFakeFakeFakeFakeFakeFakeFakeFake12"
 GOOGLE_OK = {"candidates": [{"content": {"parts": [{"text": "ok"}]}}], "usageMetadata": {}}
 GOOGLE_503 = {"error": {"code": 503, "message": "This model is currently experiencing high demand."}}
 GOOGLE_400 = {"error": {"code": 400, "message": "API key not valid. Please pass a valid API key."}}
+GOOGLE_429 = {"error": {"code": 429, "message": "You exceeded your current quota, please check your plan and billing details."}}
 
 
 class FakeResp:
@@ -103,9 +106,9 @@ def test_fallback_to_next_model_after_503s(monkeypatch):
     script = [FakeResp(503, GOOGLE_503)] * 3 + [FakeResp(200, GOOGLE_OK)]
     reply, _usage, used = run_google(monkeypatch, script, calls)
     assert reply == "ok"
-    assert used == "gemini-2.0-flash"
+    assert used == "gemini-3.5-flash"
     assert [url.split("/models/")[1].split(":")[0] for _, url in calls] == [
-        "gemini-3.8-flash", "gemini-3.8-flash", "gemini-3.8-flash", "gemini-2.0-flash",
+        "gemini-3.8-flash", "gemini-3.8-flash", "gemini-3.8-flash", "gemini-3.5-flash",
     ]
 
 
@@ -113,7 +116,7 @@ def test_fallback_skips_404_model(monkeypatch):
     calls = []
     script = [FakeResp(404, {"error": {"code": 404, "message": "model not found"}}), FakeResp(200, GOOGLE_OK)]
     _reply, _usage, used = run_google(monkeypatch, script, calls)
-    assert used == "gemini-2.0-flash"
+    assert used == "gemini-3.5-flash"
     assert len(calls) == 2
 
 
@@ -129,12 +132,67 @@ def test_bad_key_is_not_retried(monkeypatch):
 
 def test_all_models_overloaded_reports_tried_models(monkeypatch):
     calls = []
-    script = [FakeResp(503, GOOGLE_503)] * 12  # 4 models x 3 attempts
+    script = [FakeResp(503, GOOGLE_503)] * 6  # 2 models x 3 attempts
     with pytest.raises(ProviderError) as excinfo:
         run_google(monkeypatch, script, calls)
     assert excinfo.value.status == 503
-    assert "tried models: gemini-3.8-flash, gemini-2.0-flash, gemini-3.5-flash, gemini-1.5-pro" in str(excinfo.value)
-    assert len(calls) == 12
+    assert "tried models: gemini-3.8-flash, gemini-3.5-flash" in str(excinfo.value)
+    assert len(calls) == 6
+
+
+def test_fallback_to_next_model_after_429(monkeypatch):
+    # A quota-exhausted model is not retried: one call to 3.8-flash,
+    # then the next model answers. (The free tier gives 3.8-flash 20
+    # requests/day; 3.5-flash has its own quota.)
+    calls = []
+    script = [FakeResp(429, GOOGLE_429), FakeResp(200, GOOGLE_OK)]
+    reply, _usage, used = run_google(monkeypatch, script, calls)
+    assert reply == "ok"
+    assert used == "gemini-3.5-flash"
+    assert len(calls) == 2
+
+
+def test_all_models_quota_exhausted_reports_429(monkeypatch):
+    calls = []
+    script = [FakeResp(429, GOOGLE_429), FakeResp(429, GOOGLE_429)]
+    with pytest.raises(ProviderError) as excinfo:
+        run_google(monkeypatch, script, calls)
+    assert excinfo.value.status == 429
+    assert "tried models: gemini-3.8-flash, gemini-3.5-flash" in str(excinfo.value)
+    assert len(calls) == 2
+
+
+def test_stream_fallback_after_429(monkeypatch):
+    calls = []
+    monkeypatch.setattr(providers, "_RETRY_DELAYS_S", (0.0, 0.0))
+    monkeypatch.setattr(
+        providers.httpx,
+        "AsyncClient",
+        make_client([FakeResp(429, GOOGLE_429), FakeResp(200, GOOGLE_OK)], calls),
+    )
+
+    async def collect():
+        used: dict = {}
+        chunks = []
+        async for chunk in providers.run_chat_stream(
+            provider="google", model="", prompt="Say hi", system="",
+            temperature=0.7, max_tokens=1024, api_key=KEY, base_url="", timeout_s=60.0,
+            used=used,
+        ):
+            chunks.append(chunk)
+        return chunks, used.get("model")
+
+    chunks, used = asyncio.run(collect())
+    assert chunks == ["ok"]
+    assert used == "gemini-3.5-flash"
+    assert len(calls) == 2
+
+
+def test_google_model_list_has_no_retired_models():
+    # gemini-2.0-flash and gemini-1.5-pro are retired (Google returns
+    # 404); only the two Flash models verified live are offered.
+    assert providers.PROVIDERS["google"].models == ["gemini-3.8-flash", "gemini-3.5-flash"]
+    assert providers.PROVIDERS["google"].default_model == "gemini-3.8-flash"
 
 
 def test_openai_503_is_retried_same_model(monkeypatch):
@@ -178,7 +236,7 @@ def test_stream_fallback_returns_used_model(monkeypatch):
 
     chunks, used = asyncio.run(collect())
     assert chunks == ["ok"]
-    assert used == "gemini-2.0-flash"
+    assert used == "gemini-3.5-flash"
 
 
 def test_chat_run_reports_provider_503_as_503(monkeypatch):
