@@ -76,8 +76,9 @@ once the target is chosen.
 
 - **Single EC2 host (simplest):** install Docker, clone the repo,
   `docker compose up -d --build`. One instance, one public port
-  (5173, or 80 via a reverse proxy). Good for a demo or a first
-  deployment.
+  (5173, or 80/443 via the Caddy override). Good for a demo or a
+  first deployment. Full guide with automatic deploys on every push
+  to `main`: see `docs/EC2_DEPLOY.md`.
 - **ECS Fargate + ECR + ALB (production path):** build both images,
   push to ECR, run them as two containers in one task definition
   (frontend `BACKEND_URL=http://localhost:8000`), behind an ALB

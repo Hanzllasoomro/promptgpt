@@ -1,0 +1,7 @@
+# Caddy serves the app on the domain from $DOMAIN (set in the
+# environment by docker-compose.prod.yml) and reverse-proxies to the
+# frontend container, which in turn proxies /api to the backend.
+# TLS certificates are issued and renewed automatically.
+{$DOMAIN} {
+	reverse_proxy frontend:80
+}

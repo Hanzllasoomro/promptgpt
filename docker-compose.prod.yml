@@ -1,0 +1,26 @@
+# Production override for a single host with a domain: Caddy terminates
+# TLS (automatic Let's Encrypt certificates) and serves the app on
+# 80/443. Requires a domain pointing at the host and an Elastic IP.
+# Run with:
+#   DOMAIN=promptgpt.example.com docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Without a domain, use the base compose file only and reach the app at
+# http://<public-ip>:5173.
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN to your domain, e.g. promptgpt.example.com}
+    depends_on:
+      - frontend
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
