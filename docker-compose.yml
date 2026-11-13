@@ -6,11 +6,12 @@
 # backend reads optional server fallbacks from backend/.env if present.
 services:
   backend:
-    # Published image (see .github/workflows/docker-hub.yml). `up`
-    # builds locally when the image is absent; `pull` fetches the
-    # published one. DOCKERHUB_USERNAME defaults to the author's
-    # Docker Hub username — change it here if yours differs.
-    image: ${DOCKERHUB_USERNAME:-hanzllasoomroofficial}/promptgpt-backend:latest
+    # Published image (see .github/workflows/docker-hub.yml): one
+    # Docker Hub repo, `promptgpt`, with a tag per image (`backend`
+    # / `frontend`). `up` builds locally when the image is absent;
+    # `pull` fetches the published one. DOCKERHUB_USERNAME defaults
+    # to hanzllasoomroofficial — change it here if yours differs.
+    image: ${DOCKERHUB_USERNAME:-hanzllasoomroofficial}/promptgpt:backend
     build: ./backend
     ports:
       - "8000:8000"
@@ -22,7 +23,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ${DOCKERHUB_USERNAME:-hanzllasoomroofficial}/promptgpt-frontend:latest
+    image: ${DOCKERHUB_USERNAME:-hanzllasoomroofficial}/promptgpt:frontend
     build: ./frontend
     ports:
       - "5173:80"

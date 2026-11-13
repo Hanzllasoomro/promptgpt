@@ -72,15 +72,16 @@ secrets are needed; nothing is pushed or deployed from CI.
 ## Docker Hub
 
 `.github/workflows/docker-hub.yml` publishes both images on every
-push to `main` (and on manual dispatch):
+push to `main` (and on manual dispatch), to one repo with a tag per
+image:
 
-- `<username>/promptgpt-backend:latest` (+ `:sha-<short>`)
-- `<username>/promptgpt-frontend:latest` (+ `:sha-<short>`)
+- `<username>/promptgpt:backend` (+ `:backend-sha-<short>`)
+- `<username>/promptgpt:frontend` (+ `:frontend-sha-<short>`)
 
 Setup: create a Docker Hub account, then an access token (Account
 Settings → Security → New Access Token — use a token, not your
 password), and add the repository secrets `DOCKERHUB_USERNAME` and
-`DOCKERHUB_TOKEN`. The repositories must be **public** for hosts to
+`DOCKERHUB_TOKEN`. The repository must be **public** for hosts to
 pull without logging in; the images contain no secrets (keys are
 bring-your-own in the browser, server fallbacks are runtime env
 vars), so public is safe. The `DOCKERHUB_USERNAME` default in
@@ -91,10 +92,20 @@ building on the host.
 Run the published images anywhere with Docker:
 
 ```bash
-docker pull hanzllasoomroofficial/promptgpt-backend:latest
-docker pull hanzllasoomroofficial/promptgpt-frontend:latest
+docker pull hanzllasoomroofficial/promptgpt:backend
+docker pull hanzllasoomroofficial/promptgpt:frontend
 docker compose pull   # pulls the images named in docker-compose.yml
 docker compose up -d  # uses them (builds only if a pull failed)
+```
+
+From your own PC, the manual equivalent is:
+
+```bash
+docker login
+docker build -t hanzllasoomroofficial/promptgpt:backend ./backend
+docker build -t hanzllasoomroofficial/promptgpt:frontend ./frontend
+docker push hanzllasoomroofficial/promptgpt:backend
+docker push hanzllasoomroofficial/promptgpt:frontend
 ```
 
 ## AWS
