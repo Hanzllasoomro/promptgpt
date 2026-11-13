@@ -83,16 +83,16 @@ password), and add the repository secrets `DOCKERHUB_USERNAME` and
 `DOCKERHUB_TOKEN`. The repositories must be **public** for hosts to
 pull without logging in; the images contain no secrets (keys are
 bring-your-own in the browser, server fallbacks are runtime env
-vars), so public is safe. If your Docker Hub username differs from
-`hanzllasoomro`, change the `DOCKERHUB_USERNAME` default in
-`docker-compose.yml` to match, or the EC2 pull will fall back to
+vars), so public is safe. The `DOCKERHUB_USERNAME` default in
+`docker-compose.yml` is `hanzllasoomroofficial` — change it if your
+Docker Hub username ever differs, or the EC2 pull will fall back to
 building on the host.
 
 Run the published images anywhere with Docker:
 
 ```bash
-docker pull hanzllasoomro/promptgpt-backend:latest
-docker pull hanzllasoomro/promptgpt-frontend:latest
+docker pull hanzllasoomroofficial/promptgpt-backend:latest
+docker pull hanzllasoomroofficial/promptgpt-frontend:latest
 docker compose pull   # pulls the images named in docker-compose.yml
 docker compose up -d  # uses them (builds only if a pull failed)
 ```

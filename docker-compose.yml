@@ -10,7 +10,7 @@ services:
     # builds locally when the image is absent; `pull` fetches the
     # published one. DOCKERHUB_USERNAME defaults to the author's
     # Docker Hub username — change it here if yours differs.
-    image: ${DOCKERHUB_USERNAME:-hanzllasoomro}/promptgpt-backend:latest
+    image: ${DOCKERHUB_USERNAME:-hanzllasoomroofficial}/promptgpt-backend:latest
     build: ./backend
     ports:
       - "8000:8000"
@@ -22,7 +22,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ${DOCKERHUB_USERNAME:-hanzllasoomro}/promptgpt-frontend:latest
+    image: ${DOCKERHUB_USERNAME:-hanzllasoomroofficial}/promptgpt-frontend:latest
     build: ./frontend
     ports:
       - "5173:80"

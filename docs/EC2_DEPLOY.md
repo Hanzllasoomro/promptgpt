@@ -95,9 +95,9 @@ variables → Actions → Secrets):
 
 The Docker Hub secrets feed the publish workflow; the deploy itself
 needs no Docker Hub login on the host because the repositories are
-public. If your Docker Hub username is not `hanzllasoomro`, change
-the `DOCKERHUB_USERNAME` default in `docker-compose.yml` to match —
-otherwise the EC2 pull falls back to building on the host.
+public. The `DOCKERHUB_USERNAME` default in `docker-compose.yml` is
+`hanzllasoomroofficial` — change it if your Docker Hub username ever
+differs, otherwise the EC2 pull falls back to building on the host.
 
 Trigger the first deploy manually: Actions tab → "Deploy to EC2" →
 "Run workflow". After that, every push to `main` that touches the
