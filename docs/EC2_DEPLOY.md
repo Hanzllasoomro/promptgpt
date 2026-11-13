@@ -2,8 +2,10 @@
 
 One Ubuntu instance runs the whole app with `docker compose`. Every
 push to `main` redeploys it automatically via
-`.github/workflows/deploy-ec2.yml`. No registry, no load balancer, no
-managed services — just the instance.
+`.github/workflows/deploy-ec2.yml`: it pulls the published images
+from Docker Hub (`.github/workflows/docker-hub.yml`) and starts the
+stack, building on the host only if the pull fails. No load balancer,
+no managed services — just the instance.
 
 ## 1. Launch the instance
 
@@ -66,17 +68,17 @@ host — see `backend/.env.example`. Never commit that file.)
 
 ## 4. Turn on automatic deploys
 
-The two workflow files cannot be pushed by the assistant's GitHub
+The three workflow files cannot be pushed by the assistant's GitHub
 App (it lacks workflow permission), so add them from your PC once:
 
 ```bash
 git clone https://github.com/Hanzllasoomro/promptgpt.git   # if needed
 cd promptgpt
-# copy .github/workflows/ci.yml and .github/workflows/deploy-ec2.yml
-# into this repo (both files are attached to the assistant's message,
-# or already in the workspace copy)
-git add .github/workflows/ci.yml .github/workflows/deploy-ec2.yml
-git commit -m "CI + EC2 deploy workflows"
+# copy .github/workflows/ci.yml, .github/workflows/deploy-ec2.yml and
+# .github/workflows/docker-hub.yml into this repo (attached to the
+# assistant's messages, or already in the workspace copy)
+git add .github/workflows/ci.yml .github/workflows/deploy-ec2.yml .github/workflows/docker-hub.yml
+git commit -m "CI + EC2 deploy + Docker Hub workflows"
 git push origin main
 ```
 
@@ -88,6 +90,14 @@ variables → Actions → Secrets):
 | `EC2_HOST` | Elastic IP from step 1 |
 | `EC2_USER` | `ubuntu` |
 | `EC2_SSH_KEY` | the **private** key — the full contents of the `.pem` file, including the `BEGIN`/`END` lines |
+| `DOCKERHUB_USERNAME` | your Docker Hub username (lowercase) |
+| `DOCKERHUB_TOKEN` | a Docker Hub access token (Account Settings → Security → New Access Token) — use a token, not your password |
+
+The Docker Hub secrets feed the publish workflow; the deploy itself
+needs no Docker Hub login on the host because the repositories are
+public. The `DOCKERHUB_USERNAME` default in `docker-compose.yml` is
+`hanzllasoomroofficial` — change it if your Docker Hub username ever
+differs, otherwise the EC2 pull falls back to building on the host.
 
 Trigger the first deploy manually: Actions tab → "Deploy to EC2" →
 "Run workflow". After that, every push to `main` that touches the
