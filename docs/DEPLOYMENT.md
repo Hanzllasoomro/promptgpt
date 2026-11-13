@@ -69,16 +69,42 @@ test — backend direct (`:8000/api/health`) and through the nginx
 proxy (`:5173/api/health`), plus a check that the SPA serves. No
 secrets are needed; nothing is pushed or deployed from CI.
 
+## Docker Hub
+
+`.github/workflows/docker-hub.yml` publishes both images on every
+push to `main` (and on manual dispatch):
+
+- `<username>/promptgpt-backend:latest` (+ `:sha-<short>`)
+- `<username>/promptgpt-frontend:latest` (+ `:sha-<short>`)
+
+Setup: create a Docker Hub account, then an access token (Account
+Settings → Security → New Access Token — use a token, not your
+password), and add the repository secrets `DOCKERHUB_USERNAME` and
+`DOCKERHUB_TOKEN`. The repositories must be **public** for hosts to
+pull without logging in; the images contain no secrets (keys are
+bring-your-own in the browser, server fallbacks are runtime env
+vars), so public is safe. If your Docker Hub username differs from
+`hanzllasoomro`, change the `DOCKERHUB_USERNAME` default in
+`docker-compose.yml` to match, or the EC2 pull will fall back to
+building on the host.
+
+Run the published images anywhere with Docker:
+
+```bash
+docker pull hanzllasoomro/promptgpt-backend:latest
+docker pull hanzllasoomro/promptgpt-frontend:latest
+docker compose pull   # pulls the images named in docker-compose.yml
+docker compose up -d  # uses them (builds only if a pull failed)
+```
+
 ## AWS
 
-Pick one; the deploy workflow (ECR push + deploy) is the next step
-once the target is chosen.
-
 - **Single EC2 host (simplest):** install Docker, clone the repo,
-  `docker compose up -d --build`. One instance, one public port
-  (5173, or 80/443 via the Caddy override). Good for a demo or a
-  first deployment. Full guide with automatic deploys on every push
-  to `main`: see `docs/EC2_DEPLOY.md`.
+  `docker compose up -d --build` — or, once the images are on Docker
+  Hub, `docker compose pull && docker compose up -d`. One instance,
+  one public port (5173, or 80/443 via the Caddy override). Good for
+  a demo or a first deployment. Full guide with automatic deploys on
+  every push to `main`: see `docs/EC2_DEPLOY.md`.
 - **ECS Fargate + ECR + ALB (production path):** build both images,
   push to ECR, run them as two containers in one task definition
   (frontend `BACKEND_URL=http://localhost:8000`), behind an ALB
