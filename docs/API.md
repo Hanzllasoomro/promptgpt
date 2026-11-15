@@ -8,6 +8,23 @@ Body: `{ idea, task_type?, audience?, tone?, output_format?, length?, constraint
 Returns: `{ original_idea, engineered_prompt, concise_prompt, tips, task_type }`
 No key needed. Deterministic, offline.
 
+## POST /api/prompts/evaluate
+
+Body: `{ prompt }`
+Returns: `{ overall, verdict, dimensions: [{ id, name, score, findings, suggestion }] }`
+Scores a prompt on the CLEAR rubric — Concise, Logical, Explicit, Adaptive, Reflective — each 0–10, from concrete checks on the text. No key needed. Deterministic, offline. A prompt the engine produced scores 7.5 or higher; a bare one-liner scores under 5.
+
+## GET /api/library
+
+Returns: `{ templates: [{ id, domain, title, description, task_type, audience, tone, output_format, length, context, example_idea }] }`
+Six prefilled templates for real jobs (research design, code debugging, medical summarization, legal draft analysis, marketing copy, data analysis). Each is a preset bundle for `/api/prompts/generate`. `GET /api/library/{id}` returns one template, or 404.
+
+## POST /api/prompts/refine
+
+Body: the generate fields plus `{ provider, model?, rounds? (1–5, default 3) }`. Key in the `X-LLM-API-Key` header.
+Returns: `{ rounds: [{ round, prompt, overall, dimensions, improved, note }], best_prompt, best_overall, best_round, base_overall, improved_by, stopped_early, note }`
+Auto-refine loop: round 0 is the engine's prompt; each later round, the CLEAR evaluator scores the current version and the model rewrites the weakest dimensions (one LLM call per round). The best-scoring version wins. A provider failure stops the loop and returns the best version so far instead of an error.
+
 ## Accuracy rules (behind every model call)
 
 Both surfaces that send text to a model carry the same rules, from

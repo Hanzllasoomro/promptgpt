@@ -30,3 +30,51 @@ export interface HistoryItem {
   idea: string;
   engineered_prompt: string;
 }
+
+export interface DimensionScore {
+  id: string;
+  name: string;
+  score: number;
+  findings: string[];
+  suggestion: string | null;
+}
+
+export interface EvaluateResponse {
+  overall: number;
+  verdict: string;
+  dimensions: DimensionScore[];
+}
+
+export interface LibraryTemplate {
+  id: string;
+  domain: string;
+  title: string;
+  description: string;
+  task_type: string;
+  audience: string;
+  tone: string;
+  output_format: string;
+  length: string;
+  context: string;
+  example_idea: string;
+}
+
+export interface RefineRound {
+  round: number;
+  prompt: string;
+  overall: number;
+  dimensions: DimensionScore[];
+  improved: boolean;
+  note: string;
+}
+
+export interface RefineResponse {
+  rounds: RefineRound[];
+  best_prompt: string;
+  best_overall: number;
+  best_round: number;
+  base_overall: number;
+  improved_by: number;
+  stopped_early: boolean;
+  note: string | null;
+}

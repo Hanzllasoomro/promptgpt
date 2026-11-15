@@ -607,6 +607,42 @@ details .document { margin-top: var(--space-2); }
   .side-chats .chat-new:hover { background: var(--color-accent); filter: brightness(0.92); }
 }
 
+/* ---- Refine: one collapsible card per round ---- */
+.refine-round { border-block-start: 1px solid var(--color-border); padding: var(--space-2) 0; }
+.refine-round summary { cursor: pointer; font-weight: var(--font-weight-semibold); }
+.refine-round .document { margin-top: var(--space-2); }
+
+/* ---- Library: template cards in a responsive grid ---- */
+.library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: var(--space-2); }
+.library-card { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); }
+.library-card h3 { margin: 0; }
+.library-card p { margin: 0; }
+.library-domain {
+  font-size: var(--text-sm);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ---- Evaluate: CLEAR dimension rows with score bars ---- */
+.eval-dim { border-block-start: 1px solid var(--color-border); padding: var(--space-2) 0; }
+.eval-dim:first-of-type { border-block-start: 0; }
+.eval-dim-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); }
+.eval-bar {
+  height: 0.5rem;
+  background: var(--color-bg-hover);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  margin: 0.5rem 0;
+}
+.eval-bar-fill { height: 100%; border-radius: var(--radius-pill); transition-property: width; transition-duration: 400ms; transition-timing-function: var(--ease-out); }
+.eval-bar-good { background: var(--color-success); }
+.eval-bar-ok { background: var(--color-accent); }
+.eval-bar-weak { background: var(--color-danger); }
+.eval-fix { margin: 0.5rem 0 0; }
+.eval-fix strong { color: var(--color-accent); }
+
 /* ---- Phone: sidebar becomes a dark top bar, grids stack, inputs stay 16px ---- */
 @media (max-width: 56rem) {
   .app { flex-direction: column; }

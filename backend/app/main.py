@@ -19,13 +19,22 @@ from fastapi.responses import StreamingResponse
 
 from .chatbots import chatbot_links
 from .config import get_settings
+from .evaluator import evaluate
+from .library import TEMPLATES, get_template
 from .llm import langchain_client, providers
+from .refine import refine_loop
 from .llm.providers import ProviderError
 from .models import (
     ChatRequest,
     ChatResponse,
+    EvaluateRequest,
+    EvaluateResponse,
     GenerateRequest,
     GenerateResponse,
+    LibraryListResponse,
+    LibraryTemplate,
+    RefineRequest,
+    RefineResponse,
 )
 from .prompt_engine import build_engineered_prompt
 from .security import is_plausible_key
@@ -63,6 +72,55 @@ def generate_prompt(req: GenerateRequest):
         tips=tips,
         task_type=req.task_type,
     )
+
+
+@app.post("/api/prompts/evaluate", response_model=EvaluateResponse)
+def evaluate_prompt(req: EvaluateRequest):
+    """Score a prompt on the CLEAR rubric. Deterministic — no LLM call,
+    no key needed. The same checks the engine builds into its output,
+    so an engineered prompt should score high and a bare one-liner low."""
+    return evaluate(req.prompt)
+
+
+@app.post("/api/prompts/refine", response_model=RefineResponse)
+async def refine_prompt_endpoint(
+    req: RefineRequest,
+    x_llm_api_key: str | None = Header(default=None, alias="X-LLM-API-Key"),
+):
+    """Auto-refine loop: the CLEAR evaluator scores each version, the
+    model rewrites the weakest dimensions, the best version wins. One
+    LLM call per round (max 5). A provider failure stops the loop and
+    returns the best version so far instead of an error."""
+    info = providers.PROVIDERS.get(req.provider)
+    if info is None:
+        raise HTTPException(400, f"Unknown provider: {req.provider}")
+    model = req.model or info.default_model
+    key = providers.resolve_key(req.provider, x_llm_api_key)
+    if not key or not is_plausible_key(key):
+        raise HTTPException(
+            400,
+            "No API key supplied. Add your key in the Keys tab (it stays in "
+            "your browser and is sent only with this request), or set the "
+            f"server-side {req.provider.upper()} key environment variable.",
+        )
+    try:
+        return await refine_loop(req, model=model, api_key=key, timeout_s=settings.request_timeout_s)
+    except Exception as exc:  # bug in the loop itself, not a provider failure
+        raise HTTPException(502, f"Refine failed: {exc.__class__.__name__}") from exc
+
+
+@app.get("/api/library", response_model=LibraryListResponse)
+def list_library():
+    """All domain templates. Prefilled bundles for the generate endpoint."""
+    return {"templates": TEMPLATES}
+
+
+@app.get("/api/library/{template_id}", response_model=LibraryTemplate)
+def get_library_template(template_id: str):
+    template = get_template(template_id)
+    if template is None:
+        raise HTTPException(404, f"Unknown template: {template_id}")
+    return template
 
 
 @app.get("/api/chatbots")
@@ -227,6 +285,8 @@ async def run_chat_langchain(
             api_key=key,
             base_url=req.base_url,
             messages=[m.model_dump() for m in req.messages],
+            temperature=req.temperature,
+            max_tokens=req.max_tokens,
         )
     except Exception as exc:
         raise HTTPException(502, f"LangChain provider call failed: {exc.__class__.__name__}") from exc

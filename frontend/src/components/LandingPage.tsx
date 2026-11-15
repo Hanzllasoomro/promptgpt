@@ -32,6 +32,18 @@ const FEATURES: { title: string; text: string }[] = [
     text: "General, write, code, explain, marketing, learn, plan — each one shapes the structure of the prompt around what you are actually asking for.",
   },
   {
+    title: "Score any prompt",
+    text: "Paste a prompt and get a CLEAR breakdown — Concise, Logical, Explicit, Adaptive, Reflective — out of 10, with the exact reasons behind every deduction.",
+  },
+  {
+    title: "Start from a real job",
+    text: "Templates for research design, code debugging, medical summaries, legal drafts, marketing copy and data analysis — prefilled, ready to generate.",
+  },
+  {
+    title: "Refine until it scores higher",
+    text: "The evaluator scores each version and the model rewrites the weakest parts, up to five rounds. The best version wins — a worse rewrite is discarded, never kept.",
+  },
+  {
     title: "Chat with your own key",
     text: "Bring a key for OpenAI, Anthropic, Google, Hugging Face or any OpenAI-compatible endpoint and chat in the app, with streaming replies in markdown.",
   },

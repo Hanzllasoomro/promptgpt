@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { generatePrompt, listProviders } from "./api";
 import ChatPanel from "./components/ChatPanel";
+import EvaluatePanel from "./components/EvaluatePanel";
 import KeysPanel from "./components/KeysPanel";
+import LibraryPanel from "./components/LibraryPanel";
+import RefinePanel from "./components/RefinePanel";
 import LandingPage from "./components/LandingPage";
 import PromptResult from "./components/PromptResult";
 import {
@@ -11,12 +14,15 @@ import {
   type Conversation,
 } from "./conversations";
 import { hasKey } from "./keys";
-import type { GenerateResponse, HistoryItem, ProviderInfo } from "./types";
+import type { GenerateResponse, HistoryItem, LibraryTemplate, ProviderInfo } from "./types";
 
 const TASK_TYPES = ["general", "write", "code", "explain", "marketing", "learn", "plan"];
 
 const TABS = [
   { id: "generate", label: "Generate" },
+  { id: "evaluate", label: "Evaluate" },
+  { id: "library", label: "Library" },
+  { id: "refine", label: "Refine" },
   { id: "chat", label: "Chat" },
   { id: "keys", label: "Keys" },
   { id: "history", label: "History" },
@@ -30,6 +36,18 @@ const PAGE_HEADS: Partial<Record<Tab, { title: string; text: string }>> = {
   generate: {
     title: "Make a better prompt",
     text: "Write an idea in plain words. PromptGPT turns it into a structured prompt you can send or run.",
+  },
+  evaluate: {
+    title: "Score any prompt",
+    text: "Paste a prompt — yours or anyone else's — and get a CLEAR breakdown: Concise, Logical, Explicit, Adaptive, Reflective.",
+  },
+  library: {
+    title: "Start from a real job",
+    text: "Templates for research, debugging, medical summaries, legal drafts, marketing and data analysis — prefilled, ready to generate.",
+  },
+  refine: {
+    title: "Refine a prompt until it scores higher",
+    text: "The evaluator scores each version; the model rewrites the weakest parts. You keep the best.",
   },
   keys: {
     title: "Your keys, your browser",
@@ -63,6 +81,7 @@ export default function App() {
   const [context, setContext] = useState("");
   const [result, setResult] = useState<GenerateResponse | null>(null);
   const [chatPrompt, setChatPrompt] = useState("");
+  const [evaluatePrompt, setEvaluatePrompt] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
@@ -98,6 +117,18 @@ export default function App() {
   function selectConversation(id: string) {
     setActiveConversationId(id);
     setTab("chat");
+  }
+
+  function useTemplate(t: LibraryTemplate) {
+    setIdea(t.example_idea);
+    setTaskType(t.task_type);
+    setAudience(t.audience);
+    setTone(t.tone);
+    setOutputFormat(t.output_format);
+    setLength(t.length);
+    setContext(t.context);
+    setResult(null);
+    setTab("generate");
   }
 
   async function generate() {
@@ -229,7 +260,11 @@ export default function App() {
               </section>
 
               {result ? (
-                <PromptResult result={result} onUseInChat={(p) => { setChatPrompt(p); setTab("chat"); }} />
+                <PromptResult
+                  result={result}
+                  onUseInChat={(p) => { setChatPrompt(p); setTab("chat"); }}
+                  onEvaluate={(p) => { setEvaluatePrompt(p); setTab("evaluate"); }}
+                />
               ) : (
                 <section className="panel empty-state">
                   <h2>Your engineered prompt will appear here</h2>
@@ -241,6 +276,28 @@ export default function App() {
                   <p>Try: “A modern personal portfolio website for a creative designer” or “Explain quantum physics to a 5-year-old using simple analogies”.</p>
                 </section>
               )}
+            </div>
+          )}
+
+          {tab === "evaluate" && (
+            <div className="reveal-2">
+              <EvaluatePanel initialPrompt={evaluatePrompt} />
+            </div>
+          )}
+
+          {tab === "library" && (
+            <div className="reveal-2">
+              <LibraryPanel onUseTemplate={useTemplate} />
+            </div>
+          )}
+
+          {tab === "refine" && (
+            <div className="reveal-2">
+              <RefinePanel
+                providers={providers}
+                onNeedKey={() => setTab("keys")}
+                onUseInChat={(p) => { setChatPrompt(p); setTab("chat"); }}
+              />
             </div>
           )}
 

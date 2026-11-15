@@ -5,9 +5,10 @@ import type { ChatbotInfo, GenerateResponse } from "../types";
 interface Props {
   result: GenerateResponse;
   onUseInChat: (prompt: string) => void;
+  onEvaluate?: (prompt: string) => void;
 }
 
-export default function PromptResult({ result, onUseInChat }: Props) {
+export default function PromptResult({ result, onUseInChat, onEvaluate }: Props) {
   const [copied, setCopied] = useState(false);
   const [chatbots, setChatbots] = useState<ChatbotInfo[] | null>(null);
   const [chatbotError, setChatbotError] = useState("");
@@ -40,6 +41,11 @@ export default function PromptResult({ result, onUseInChat }: Props) {
           <button id="copy-prompt" className="btn-secondary" onClick={() => copy(result.engineered_prompt)}>
             {copied ? "✓ Copied" : "Copy"}
           </button>
+          {onEvaluate && (
+            <button id="score-prompt" className="btn-secondary" onClick={() => onEvaluate(result.engineered_prompt)}>
+              Score this prompt
+            </button>
+          )}
           <button id="use-in-chat" className="btn-primary" onClick={() => onUseInChat(result.engineered_prompt)}>
             Run with my key
           </button>

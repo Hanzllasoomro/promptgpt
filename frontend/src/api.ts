@@ -1,4 +1,4 @@
-import type { ChatbotInfo, GenerateResponse, ProviderInfo } from "./types";
+import type { ChatbotInfo, EvaluateResponse, GenerateResponse, LibraryTemplate, ProviderInfo, RefineResponse } from "./types";
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) || "";
 
@@ -27,6 +27,34 @@ export function generatePrompt(body: Record<string, unknown>): Promise<GenerateR
 
 export function listProviders(): Promise<{ providers: ProviderInfo[] }> {
   return request("/api/providers");
+}
+
+export function evaluatePrompt(prompt: string): Promise<EvaluateResponse> {
+  return request<EvaluateResponse>("/api/prompts/evaluate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt }),
+  });
+}
+
+export function listLibrary(): Promise<{ templates: LibraryTemplate[] }> {
+  return request("/api/library");
+}
+
+export interface RefineBody {
+  idea: string;
+  task_type: string;
+  provider: string;
+  model: string;
+  rounds: number;
+}
+
+export function refinePrompt(body: RefineBody, apiKey: string): Promise<RefineResponse> {
+  return request<RefineResponse>("/api/prompts/refine", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-LLM-API-Key": apiKey },
+    body: JSON.stringify(body),
+  });
 }
 
 export function listChatbots(prompt: string): Promise<{ chatbots: ChatbotInfo[] }> {
