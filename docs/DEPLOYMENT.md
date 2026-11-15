@@ -46,7 +46,7 @@ the browser (bring-your-own-key) and are sent per request.
 
 ## Backend (FastAPI)
 
-- Build: `backend/Dockerfile` (Python 3.12-slim, uvicorn, `$PORT`).
+- Build: `backend/Dockerfile` (Python 3.12.3-slim, uvicorn, `$PORT`).
   The image also installs `requirements-langchain.txt`, so the
   "Run via LangChain" toggle in the UI works; without those deps
   `/api/chat/run-langchain` returns 501.
