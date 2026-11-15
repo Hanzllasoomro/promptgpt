@@ -100,6 +100,24 @@ export default function App() {
   // styles.css). The drawer closes on Escape, on the backdrop, or when
   // the user picks a destination inside it.
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // On desktop the sidebar can also be collapsed manually with the «
+  // button on it; the top bar's hamburger brings it back. Persisted, so
+  // a reload keeps the user's choice.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem("promptgpt:sidebar-collapsed") === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("promptgpt:sidebar-collapsed", sidebarCollapsed ? "1" : "0");
+    } catch {
+      // Private mode: the collapse just doesn't persist.
+    }
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -187,12 +205,12 @@ export default function App() {
   }
 
   return (
-    <div className={drawerOpen ? "app drawer-open" : "app"}>
+    <div className={`app${drawerOpen ? " drawer-open" : ""}${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
       <header className="topbar">
         <button
           type="button"
           className="topbar-menu"
-          onClick={() => setDrawerOpen(true)}
+          onClick={() => { setDrawerOpen(true); setSidebarCollapsed(false); }}
           aria-expanded={drawerOpen}
           aria-controls="sidebar"
           aria-label="Open menu"
@@ -210,6 +228,9 @@ export default function App() {
       <aside className="sidebar" id="sidebar">
         <button type="button" className="drawer-close" onClick={() => setDrawerOpen(false)} aria-label="Close menu">
           ✕
+        </button>
+        <button type="button" className="sidebar-collapse" onClick={() => setSidebarCollapsed(true)} aria-label="Collapse sidebar" title="Collapse sidebar">
+          «
         </button>
         <button type="button" className="wordmark wordmark-btn" onClick={() => { setView("home"); setDrawerOpen(false); }} title="Back to home">
           PromptGPT<span className="wordmark-accent">.</span>

@@ -58,6 +58,7 @@
   --space-5: 3rem;
 
   --sidebar-width: 17rem;
+  --topbar-height: 3.75rem;
   --content-max: 72rem;
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
   --shadow-panel: 0 1px 3px rgba(20, 20, 19, 0.06);
@@ -671,48 +672,52 @@ details .document { margin-top: var(--space-2); }
 .topbar { display: none; }
 .backdrop { display: none; }
 .drawer-close { display: none; }
+.sidebar-collapse { display: none; }
+/* The top bar's look lives here (not in the mobile block), because the
+ * same bar appears on desktop too when the sidebar is collapsed. */
+.topbar {
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--topbar-height);
+  padding: 0.625rem var(--space-2);
+  background: var(--color-sidebar-bg);
+  color: var(--color-sidebar-text);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  border-block-end: 1px solid var(--color-sidebar-border);
+}
+.topbar-menu {
+  background: transparent;
+  border: 1px solid var(--color-sidebar-border);
+  border-radius: var(--radius-control);
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3125rem;
+  flex-shrink: 0;
+}
+.topbar-menu span {
+  display: block;
+  width: 1.125rem;
+  height: 2px;
+  background: var(--color-sidebar-text);
+  border-radius: 2px;
+}
+.topbar .wordmark { font-size: 1.25rem; }
+.topbar-tab {
+  margin-left: auto;
+  font-size: var(--text-small);
+  color: var(--color-sidebar-secondary);
+  font-weight: 500;
+}
 
 @media (max-width: 63.9375rem) {
   .app { flex-direction: column; }
-  .topbar {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: 0.625rem var(--space-2);
-    background: var(--color-sidebar-bg);
-    color: var(--color-sidebar-text);
-    position: sticky;
-    top: 0;
-    z-index: 30;
-    border-block-end: 1px solid var(--color-sidebar-border);
-  }
-  .topbar-menu {
-    background: transparent;
-    border: 1px solid var(--color-sidebar-border);
-    border-radius: var(--radius-control);
-    width: 2.5rem;
-    height: 2.5rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.3125rem;
-    flex-shrink: 0;
-  }
-  .topbar-menu span {
-    display: block;
-    width: 1.125rem;
-    height: 2px;
-    background: var(--color-sidebar-text);
-    border-radius: 2px;
-  }
-  .topbar .wordmark { font-size: 1.25rem; }
-  .topbar-tab {
-    margin-left: auto;
-    font-size: var(--text-small);
-    color: var(--color-sidebar-secondary);
-    font-weight: 500;
-  }
+  .topbar { display: flex; }
   .sidebar {
     position: fixed;
     top: 0;
@@ -776,3 +781,46 @@ details .document { margin-top: var(--space-2); }
 
 /* ---- Wide screens (1536px+): nothing widens — the 72rem reading column
  * and 272px sidebar already cap the layout, so text never stretches. ---- */
+
+/* ---- Manual collapse (desktop only): the « button on the sidebar hides
+ * it; the top bar's hamburger brings it back. The choice persists in
+ * localStorage. Below 1024px this does nothing — the drawer rules own
+ * the sidebar there, and the collapse button never appears. ---- */
+@media (min-width: 64rem) {
+  .sidebar-collapse {
+    display: block;
+    position: absolute;
+    top: 1rem;
+    right: 0.75rem;
+    background: transparent;
+    border: 1px solid var(--color-sidebar-border);
+    border-radius: var(--radius-control);
+    color: var(--color-sidebar-text);
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 1.125rem;
+    line-height: 1;
+  }
+  .sidebar-collapse:hover { background: var(--color-sidebar-hover); }
+  .sidebar {
+    transition-property: margin-left, visibility;
+    transition-duration: 250ms, 0s;
+    transition-delay: 0s, 0s;
+    transition-timing-function: var(--ease-out);
+  }
+  .app.sidebar-collapsed .sidebar {
+    margin-left: calc(var(--sidebar-width) * -1);
+    visibility: hidden;
+    transition-delay: 0s, 250ms;
+  }
+  .app.sidebar-collapsed .topbar {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+  .app.sidebar-collapsed .main {
+    padding-top: calc(var(--space-5) + var(--topbar-height));
+  }
+}
