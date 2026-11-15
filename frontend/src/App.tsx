@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { generatePrompt, listProviders } from "./api";
 import ChatPanel from "./components/ChatPanel";
 import KeysPanel from "./components/KeysPanel";
+import LandingPage from "./components/LandingPage";
 import PromptResult from "./components/PromptResult";
 import {
   loadConversations,
@@ -49,6 +50,9 @@ function loadHistory(): HistoryItem[] {
 }
 
 export default function App() {
+  // The homepage is the front door; the app shell is one click away.
+  // The wordmark in the sidebar goes back home.
+  const [view, setView] = useState<"home" | "app">("home");
   const [tab, setTab] = useState<Tab>("generate");
   const [idea, setIdea] = useState("");
   const [taskType, setTaskType] = useState("general");
@@ -123,10 +127,16 @@ export default function App() {
   const keysSaved = providers.filter((p) => hasKey(p.id)).length;
   const head = PAGE_HEADS[tab];
 
+  if (view === "home") {
+    return <LandingPage onLaunch={() => setView("app")} />;
+  }
+
   return (
     <div className="app">
       <aside className="sidebar">
-        <p className="wordmark">PromptGPT<span className="wordmark-accent">.</span></p>
+        <button type="button" className="wordmark wordmark-btn" onClick={() => setView("home")} title="Back to home">
+          PromptGPT<span className="wordmark-accent">.</span>
+        </button>
         <div className="side-chats" aria-label="Conversations">
           <button className="btn-primary chat-new" onClick={startNewChat}>
             + New chat
