@@ -96,6 +96,23 @@ export default function App() {
   });
   const [conversations, setConversations] = useState(initialConversations);
   const [activeConversationId, setActiveConversationId] = useState(initialConversations[0].id);
+  // Below 1024px the sidebar hides behind a hamburger drawer (see
+  // styles.css). The drawer closes on Escape, on the backdrop, or when
+  // the user picks a destination inside it.
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDrawerOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [drawerOpen]);
 
   useEffect(() => {
     saveConversations(conversations);
@@ -112,11 +129,18 @@ export default function App() {
     setConversations((prev) => [convo, ...prev]);
     setActiveConversationId(convo.id);
     setTab("chat");
+    setDrawerOpen(false);
   }
 
   function selectConversation(id: string) {
     setActiveConversationId(id);
     setTab("chat");
+    setDrawerOpen(false);
+  }
+
+  function goTab(t: Tab) {
+    setTab(t);
+    setDrawerOpen(false);
   }
 
   function useTemplate(t: LibraryTemplate) {
@@ -163,9 +187,31 @@ export default function App() {
   }
 
   return (
-    <div className="app">
-      <aside className="sidebar">
+    <div className={drawerOpen ? "app drawer-open" : "app"}>
+      <header className="topbar">
+        <button
+          type="button"
+          className="topbar-menu"
+          onClick={() => setDrawerOpen(true)}
+          aria-expanded={drawerOpen}
+          aria-controls="sidebar"
+          aria-label="Open menu"
+        >
+          <span />
+          <span />
+          <span />
+        </button>
         <button type="button" className="wordmark wordmark-btn" onClick={() => setView("home")} title="Back to home">
+          PromptGPT<span className="wordmark-accent">.</span>
+        </button>
+        <span className="topbar-tab">{TABS.find((t) => t.id === tab)?.label}</span>
+      </header>
+      <div className="backdrop" onClick={() => setDrawerOpen(false)} aria-hidden="true" />
+      <aside className="sidebar" id="sidebar">
+        <button type="button" className="drawer-close" onClick={() => setDrawerOpen(false)} aria-label="Close menu">
+          ✕
+        </button>
+        <button type="button" className="wordmark wordmark-btn" onClick={() => { setView("home"); setDrawerOpen(false); }} title="Back to home">
           PromptGPT<span className="wordmark-accent">.</span>
         </button>
         <div className="side-chats" aria-label="Conversations">
@@ -188,7 +234,7 @@ export default function App() {
         </div>
         <nav className="nav" aria-label="Main">
           {TABS.map((t) => (
-            <button key={t.id} className={tab === t.id ? "active" : ""} onClick={() => setTab(t.id)}>
+            <button key={t.id} className={tab === t.id ? "active" : ""} onClick={() => goTab(t.id)}>
               {t.label}
             </button>
           ))}

@@ -341,14 +341,27 @@
   .lp-link:hover { color: var(--color-accent-deep); }
 }
 
-/* ---- Phone: stack everything, hide nav links, keep the CTA ---- */
-@media (max-width: 56rem) {
-  .lp-nav { gap: var(--space-2); padding: 0.75rem var(--space-2); }
-  .lp-nav-links { display: none; }
+/* ---- Responsive scale: same breakpoints as the app shell (see styles.css).
+ * Below 1024px: the hero and the two-column sections stack.
+ * Below 768px: features and steps go one-across.
+ * Below 640px: nav links hide (the CTA stays), display type shrinks,
+ * and the hero CTAs stack full-width for thumbs. ---- */
+@media (max-width: 63.9375rem) {
   .lp-hero { grid-template-columns: minmax(0, 1fr); padding: var(--space-4) var(--space-2); gap: var(--space-3); }
   .lp-hero h1 { font-size: 2.5rem; }
   .lp-float-card { left: 0.75rem; right: 0.75rem; bottom: 0.75rem; max-width: none; }
   .lp-section { padding: var(--space-4) var(--space-2); }
-  .lp-demo-grid, .lp-ba-grid, .lp-features-grid, .lp-steps { grid-template-columns: minmax(0, 1fr); }
+  .lp-demo-grid, .lp-ba-grid { grid-template-columns: minmax(0, 1fr); }
+  .lp-features-grid, .lp-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 47.9375rem) {
+  .lp-features-grid, .lp-steps { grid-template-columns: minmax(0, 1fr); }
   .lp-section-head h2, .lp-cta h2 { font-size: 1.75rem; }
+}
+@media (max-width: 39.9375rem) {
+  .lp-nav { gap: var(--space-2); padding: 0.75rem var(--space-2); }
+  .lp-nav-links { display: none; }
+  .lp-hero h1 { font-size: 2.25rem; }
+  .lp-sub { font-size: 1rem; }
+  .lp-cta-row .lp-cta-primary, .lp-cta-row .lp-cta-secondary { flex: 1 1 100%; text-align: center; }
 }

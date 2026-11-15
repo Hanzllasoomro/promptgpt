@@ -643,27 +643,136 @@ details .document { margin-top: var(--space-2); }
 .eval-fix { margin: 0.5rem 0 0; }
 .eval-fix strong { color: var(--color-accent); }
 
-/* ---- Phone: sidebar becomes a dark top bar, grids stack, inputs stay 16px ---- */
-@media (max-width: 56rem) {
+/* ---- Responsive scale (standard CSS breakpoints, from the user's research) ----
+ * Mobile ......... 0–639px    (40rem)  — compact phones in portrait
+ * Large phones ... 640–767px  (40–48rem)
+ * Tablets ........ 768–1023px (48–64rem) — iPad portrait lives here
+ * Laptops ........ 1024–1279px (64–80rem)
+ * Desktops ....... 1280–1535px (80–96rem)
+ * Wide ........... 1536px+    (96rem)
+ * The app shell is desktop-first: the sidebar is fixed from 1024px up,
+ * and below that it is hidden behind a hamburger drawer (see below).
+ * The reading column stays capped at 72rem on every width.
+ * Convention: a max-width query uses the breakpoint minus one pixel
+ * (63.9375rem = 1023px), so the breakpoint value itself belongs to the
+ * larger range — at exactly 1024px the sidebar is visible, as it should be. */
+
+/* ---- Laptops (1024–1279px): the sidebar is visible, but the content
+ * column is only ~700px wide, so the form/result split stacks. ---- */
+@media (max-width: 79.9375rem) {
+  .work-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---- Top bar + drawer: below 1024px the sidebar hides and a slim dark
+ * top bar replaces it. The hamburger opens the same sidebar as an
+ * overlay drawer; a backdrop, Escape, or picking a destination closes it.
+ * The drawer keeps the sidebar's content (conversations, nav, status) —
+ * it is hidden, not removed, so nothing is unreachable on a phone. ---- */
+.topbar { display: none; }
+.backdrop { display: none; }
+.drawer-close { display: none; }
+
+@media (max-width: 63.9375rem) {
   .app { flex-direction: column; }
-  .sidebar {
-    width: 100%;
-    height: auto;
-    position: static;
-    border-inline-end: 0;
-    border-block-end: 1px solid var(--color-sidebar-border);
-    padding: var(--space-2) var(--space-2);
+  .topbar {
+    display: flex;
+    align-items: center;
     gap: var(--space-2);
+    padding: 0.625rem var(--space-2);
+    background: var(--color-sidebar-bg);
+    color: var(--color-sidebar-text);
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    border-block-end: 1px solid var(--color-sidebar-border);
   }
-  .nav { flex-direction: row; overflow-x: auto; }
-  .nav button { white-space: nowrap; }
-  .sidebar-foot { display: none; }
+  .topbar-menu {
+    background: transparent;
+    border: 1px solid var(--color-sidebar-border);
+    border-radius: var(--radius-control);
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3125rem;
+    flex-shrink: 0;
+  }
+  .topbar-menu span {
+    display: block;
+    width: 1.125rem;
+    height: 2px;
+    background: var(--color-sidebar-text);
+    border-radius: 2px;
+  }
+  .topbar .wordmark { font-size: 1.25rem; }
+  .topbar-tab {
+    margin-left: auto;
+    font-size: var(--text-small);
+    color: var(--color-sidebar-secondary);
+    font-weight: 500;
+  }
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    width: min(var(--sidebar-width), 85vw);
+    transform: translateX(-102%);
+    visibility: hidden;
+    transition-property: transform, visibility;
+    transition-duration: 250ms;
+    transition-timing-function: var(--ease-out);
+  }
+  .app.drawer-open .sidebar { transform: none; visibility: visible; }
+  .drawer-close {
+    display: block;
+    position: absolute;
+    top: 1rem;
+    right: 0.75rem;
+    background: transparent;
+    border: 1px solid var(--color-sidebar-border);
+    border-radius: var(--radius-control);
+    color: var(--color-sidebar-text);
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: var(--text-ui);
+    line-height: 1;
+  }
+  .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    background: rgba(20, 20, 19, 0.5);
+    opacity: 0;
+    visibility: hidden;
+    transition-property: opacity, visibility;
+    transition-duration: 250ms;
+    transition-timing-function: var(--ease-out);
+  }
+  .app.drawer-open .backdrop { opacity: 1; visibility: visible; }
+  .main { padding: var(--space-4) var(--space-2); }
+  .page-head h1 { font-size: 2.25rem; }
+}
+
+/* ---- Tablets (768–1023px): the Keys rows stack; the form stays two columns
+ * down to 640px, where it stacks too. ---- */
+@media (max-width: 47.9375rem) {
+  .setting-row { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
+}
+
+/* ---- Phones (0–639px): tighter padding, smaller display type, single-column
+ * forms. Inputs stay 16px so iOS never zooms the page on focus. ---- */
+@media (max-width: 39.9375rem) {
   .main { padding: var(--space-3) var(--space-2); }
   .page-head h1 { font-size: 2rem; }
-  .work-grid, .grid, .setting-row { grid-template-columns: minmax(0, 1fr); }
-  .setting-row { gap: var(--space-2); }
-  .side-chats { overflow-x: auto; }
-  .side-chats ul { flex-direction: row; overflow-x: auto; }
-  .side-chats li button { white-space: nowrap; }
-  .chat-new { width: auto; }
+  .page-head p { font-size: 1rem; }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .msg-bubble { max-width: 92%; }
 }
+
+/* ---- Wide screens (1536px+): nothing widens — the 72rem reading column
+ * and 272px sidebar already cap the layout, so text never stretches. ---- */
